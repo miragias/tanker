@@ -159,8 +159,8 @@ struct UniformBufferObject
 float gammaValue;
 const int NUMBER_OF_IMAGES = 2;
 
-const std::string MODEL_PATH = "models/chalet.obj";
-const std::string TEXTURE_PATH = "textures/chalet.jpg";
+const std::string MODEL_PATH = "models/viking_room.obj";
+const std::string TEXTURE_PATH = "models/viking_room.png";
 
 std::vector<Vertex> vertices;
 std::vector<uint32_t> indices;
@@ -295,8 +295,10 @@ private:
 		g_SwapChainResizeHeight = h;
 	}
 
-		float f1 = 45.0f;
-	void imGuiSetupWindow() {
+	float f1 = 45.0f;
+
+	void imGuiSetupWindow() 
+	{
 		ImGuiIO& io = ImGui::GetIO();
 		// Start the Dear ImGui frame
 		ImGui_ImplVulkan_NewFrame();
@@ -317,7 +319,8 @@ private:
 		ImGui::Render();
 	}
 
-	void recreateImGuiWindow() {
+	void recreateImGuiWindow() 
+	{
 		if (!isImGuiWindowCreated)
 		{
 			ImGui_ImplVulkan_Shutdown();
@@ -468,36 +471,63 @@ private:
 		return true;
 	}
 
-	static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData) {
+	static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData) 
+	{
 		std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
 
 		return VK_FALSE;
 	}
 
-	void pickPhysicalDevice() {
+	void pickPhysicalDevice() 
+	{
 		uint32_t deviceCount = 0;
 		vkEnumeratePhysicalDevices(m_Instance, &deviceCount, nullptr);
 
-		if (deviceCount == 0) {
+		if (deviceCount == 0) 
+		{
 			throw std::runtime_error("failed to find GPUs with Vulkan support!");
 		}
 
 		std::vector<VkPhysicalDevice> devices(deviceCount);
 		vkEnumeratePhysicalDevices(m_Instance, &deviceCount, devices.data());
 
-		for (const auto& device : devices) {
-			if (isDeviceSuitable(device)) {
+		for (const auto& device : devices) 
+		{
+			if (isDeviceSuitable(device)) 
+			{
 				m_PhysicalDevice = device;
 				break;
 			}
 		}
 
-		if (m_PhysicalDevice == VK_NULL_HANDLE) {
+		if (m_PhysicalDevice == VK_NULL_HANDLE) 
+		{
 			throw std::runtime_error("failed to find a suitable GPU!");
 		}
 	}
 
-	void createLogicalDevice() {
+	bool isDeviceSuitable(VkPhysicalDevice device) 
+	{
+		QueueFamilyIndices indices = findQueueFamilies(device);
+
+		bool extensionsSupported = checkDeviceExtensionSupport(device);
+
+		bool swapChainAdequate = false;
+		if (extensionsSupported) {
+			SwapChainSupportDetails swapChainSupport = querySwapChainSupport(device);
+			swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
+		}
+
+
+		VkPhysicalDeviceFeatures supportedFeatures;
+		vkGetPhysicalDeviceFeatures(device, &supportedFeatures);
+
+		return indices.isComplete() && extensionsSupported && swapChainAdequate && supportedFeatures.samplerAnisotropy;
+	}
+
+
+	void createLogicalDevice() 
+	{
 		QueueFamilyIndices indices = findQueueFamilies(m_PhysicalDevice);
 
 		std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
@@ -546,7 +576,8 @@ private:
 		vkGetDeviceQueue(m_Device, indices.presentFamily.value(), 0, &m_PresentQueue);
 	}
 
-	void createSwapChain() {
+	void createSwapChain() 
+	{
 		SwapChainSupportDetails swapChainSupport = querySwapChainSupport(m_PhysicalDevice);
 
 		VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);
@@ -1570,24 +1601,6 @@ private:
 		return buffer;
 	}
 
-	bool isDeviceSuitable(VkPhysicalDevice device) {
-		QueueFamilyIndices indices = findQueueFamilies(device);
-
-		bool extensionsSupported = checkDeviceExtensionSupport(device);
-
-		bool swapChainAdequate = false;
-		if (extensionsSupported) {
-			SwapChainSupportDetails swapChainSupport = querySwapChainSupport(device);
-			swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
-		}
-
-
-		VkPhysicalDeviceFeatures supportedFeatures;
-		vkGetPhysicalDeviceFeatures(device, &supportedFeatures);
-
-		return indices.isComplete() && extensionsSupported && swapChainAdequate && supportedFeatures.samplerAnisotropy;
-	}
-
 	bool checkDeviceExtensionSupport(VkPhysicalDevice device) {
 		uint32_t extensionCount;
 		vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
@@ -1749,6 +1762,8 @@ so s() shouldn't have a for loop, but should have code to 'figure out which inde
 	void drawFrame()
 	{
 		glfwGetFramebufferSize(m_Window, &WIDTH, &HEIGHT);
+
+		//The vkWaitForFences function takes an array of fences and waits for either any or all of them to be signaled before returning.
 		vkWaitForFences(m_Device, 1, &m_InFlightFences[m_CurrentFrame], VK_TRUE, UINT64_MAX);
 
 		VkResult result = vkAcquireNextImageKHR(m_Device, m_SwapChain, UINT64_MAX, m_ImageAvailableSemaphores[m_CurrentFrame], VK_NULL_HANDLE, &m_ImageIndex);
@@ -1769,6 +1784,7 @@ so s() shouldn't have a for loop, but should have code to 'figure out which inde
 
 		updateUniformBuffer();
 
+		//Submit the command buffers for drawing
 		VkSubmitInfo submitInfo = {};
 		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
@@ -1789,6 +1805,7 @@ so s() shouldn't have a for loop, but should have code to 'figure out which inde
 		if (vkQueueSubmit(m_GraphicsQueue, 1, &submitInfo, m_InFlightFences[m_CurrentFrame]) != VK_SUCCESS) {
 			throw std::runtime_error("failed to submit draw command buffer!");
 		}
+		//
 
 		VkPresentInfoKHR presentInfo = {};
 		presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
