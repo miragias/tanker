@@ -1689,8 +1689,8 @@ private:
 			{
 				imGuiSetupWindow();
 				isImGuiWindowCreated = true;
+				SetupCommandBuffers();
 			}
-			UpdateCommandBuffers();
 			updateUniformBuffer();
 			drawFrame();
 		}
@@ -1700,14 +1700,15 @@ private:
 		ImGui::DestroyContext();
 	}
 
-	//TODO(JohnMir): According to some guy from Lunar this shouldn't do a for loop. 
+	//EDIT(JohnMir): (Edit : 05_1_21 I think it's ok now i moved the setup to happen only once)
+	//	According to some guy from Lunar this shouldn't do a for loop. 
 	/*"The bigger issue is that you are recreating your command bufferS every frame
 vulkan-tutorial unfortunately posits that you shouldn't recreate command buffers. but this is backwards to standard practice
 standard practice is to write a command buffer every frame (which is what you are doing)
 the only problem is you are also writing every other command buffer, when you just need to write the 1 for the current index
 so s() shouldn't have a for loop, but should have code to 'figure out which index to use'"
 */
-	void UpdateCommandBuffers()
+	void SetupCommandBuffers()
 	{
 		for (size_t i = 0; i < m_CommandBuffers.size(); i++)
 		{
