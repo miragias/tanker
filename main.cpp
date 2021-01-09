@@ -156,14 +156,17 @@ struct UniformBufferObject
 	float gamma;
 };
 
-float gammaValue;
+float gammaValue = 1;
 const int NUMBER_OF_IMAGES = 2;
 
-const std::string MODEL_PATH = "models/viking_room.obj";
+const std::string MODEL_PATH = "models/skull.obj";
+const std::string MODEL2_PATH = "models/viking_room.obj";
 const std::string TEXTURE_PATH = "models/viking_room.png";
 
-std::vector<Vertex> vertices;
-std::vector<uint32_t> indices;
+std::vector<Vertex> m_ModelVertexes;
+std::vector<uint32_t> m_VertexIndices;
+std::vector<Vertex> m_Model2Vertexes;
+std::vector<uint32_t> m_Vertex2Indices;
 VkBuffer vertexBuffer;
 VkDeviceMemory vertexBufferMemory;
 
@@ -276,12 +279,15 @@ private:
 		createTextureImage();
 		createTextureImageView();
 		createTextureSampler();
-		loadModel();
+		loadModel(false);
+		loadModel(true);
+
 		createVertexBuffer();
 		createIndexBuffer();
 		createUniformBuffers();
 		createDescriptorPool();
 		createDescriptorSets();
+
 		createCommandBuffers();
 		createSyncObjects();
 
@@ -295,7 +301,7 @@ private:
 		g_SwapChainResizeHeight = h;
 	}
 
-	float f1 = 45.0f;
+	float f1 = 90.0f;
 
 	void imGuiSetupWindow() 
 	{
@@ -449,6 +455,7 @@ private:
 	}
 
 	bool checkValidationLayerSupport() {
+
 		uint32 layerCount;
 		vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
 
@@ -1303,14 +1310,23 @@ private:
 		}
 	}
 
-	void loadModel() {
+	void loadModel(bool second) {
 		tinyobj::attrib_t attrib;
 		std::vector<tinyobj::shape_t> shapes;
 		std::vector<tinyobj::material_t> materials;
 		std::string warn, err;
 
-		if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, MODEL_PATH.c_str())) {
-			throw std::runtime_error(warn + err);
+		if (second)
+		{
+			if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, MODEL2_PATH.c_str())) {
+				throw std::runtime_error(warn + err);
+			}
+		}
+		else
+		{
+			if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, MODEL_PATH.c_str())) {
+				throw std::runtime_error(warn + err);
+			}
 		}
 
 		std::unordered_map<Vertex, uint32_t> uniqueVertices = {};
@@ -1324,6 +1340,10 @@ private:
 					attrib.vertices[3 * index.vertex_index + 1],
 					attrib.vertices[3 * index.vertex_index + 2]
 				};
+				if (second)
+				{
+					vertex.pos += glm::vec3(1, 1, 1);
+				}
 
 				vertex.texCoord = {
 					attrib.texcoords[2 * index.texcoord_index + 0],
@@ -1332,19 +1352,33 @@ private:
 
 				vertex.color = { 1.0f, 1.0f, 1.0f };
 
-				if (uniqueVertices.count(vertex) == 0) {
-					uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
-					vertices.push_back(vertex);
-				}
+				if (second)
+				{
+					if (uniqueVertices.count(vertex) == 0) {
+						uniqueVertices[vertex] = static_cast<uint32_t>(m_Model2Vertexes.size());
+						m_Model2Vertexes.push_back(vertex);
+					}
 
-				indices.push_back(uniqueVertices[vertex]);
+					m_Vertex2Indices.push_back(uniqueVertices[vertex]);
+				}
+				else
+				{
+					if (uniqueVertices.count(vertex) == 0) {
+						uniqueVertices[vertex] = static_cast<uint32_t>(m_ModelVertexes.size());
+						m_ModelVertexes.push_back(vertex);
+					}
+
+					m_VertexIndices.push_back(uniqueVertices[vertex]);
+				}
 			}
 		}
 	}
 
 	void createVertexBuffer()
 	{
-		VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
+		size_t dummyModelSize = sizeof(m_ModelVertexes[0]) * m_ModelVertexes.size();
+		size_t model2Size = sizeof(m_Model2Vertexes[0]) * m_Model2Vertexes.size();
+		VkDeviceSize bufferSize = 100000000; //Picking an arbitrary big size
 
 		VkBuffer stagingBuffer;
 		VkDeviceMemory stagingBufferMemory;
@@ -1352,10 +1386,16 @@ private:
 			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
 
 		void* data;
+		void* data2;
 
-		vkMapMemory(m_Device, stagingBufferMemory, 0, bufferSize, 0, &data);
-		memcpy(data, vertices.data(), (size_t)bufferSize);
+		vkMapMemory(m_Device, stagingBufferMemory, 0, dummyModelSize, 0, &data);
+		vkMapMemory(m_Device, stagingBufferMemory, dummyModelSize, model2Size, 0, &data2);
+
+		memcpy(data, m_ModelVertexes.data(), dummyModelSize);
+		memcpy(data2, m_Model2Vertexes.data(), model2Size);
+
 		vkUnmapMemory(m_Device, stagingBufferMemory);
+
 		createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_VertexBuffer, m_VertexBufferMemory);
 
@@ -1368,15 +1408,20 @@ private:
 
 	void createIndexBuffer()
 	{
-		VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
+		size_t dummyModelSize = sizeof(m_VertexIndices[0]) * m_VertexIndices.size();
+		size_t dummyModelSize2 = sizeof(m_Vertex2Indices[0]) * m_Vertex2Indices.size();
+		VkDeviceSize bufferSize = 1000000000;
 
 		VkBuffer stagingBuffer;
 		VkDeviceMemory stagingBufferMemory;
 		createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
 
 		void* data;
-		vkMapMemory(m_Device, stagingBufferMemory, 0, bufferSize, 0, &data);
-		memcpy(data, indices.data(), (size_t)bufferSize);
+		void* data2;
+		vkMapMemory(m_Device, stagingBufferMemory, 0, dummyModelSize, 0, &data);
+		vkMapMemory(m_Device, stagingBufferMemory, dummyModelSize, dummyModelSize2, 0, &data2);
+		memcpy(data, m_VertexIndices.data(), dummyModelSize);
+		memcpy(data2, m_Vertex2Indices.data(), dummyModelSize2);
 		vkUnmapMemory(m_Device, stagingBufferMemory);
 
 		createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_IndexBuffer, m_IndexBufferMemory);
@@ -1735,15 +1780,26 @@ so s() shouldn't have a for loop, but should have code to 'figure out which inde
 
 			vkCmdBindPipeline(m_CommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_GraphicsPipeline);
 
-			VkBuffer vertexBuffers[] = { m_VertexBuffer };
-			VkDeviceSize offsets[] = { 0 };
-			vkCmdBindVertexBuffers(m_CommandBuffers[i], 0, 1, vertexBuffers, offsets);
+			VkBuffer vertexBuffers[] = { m_VertexBuffer};
+			VkDeviceSize offsets[] = { 0};
 
 			vkCmdBindVertexBuffers(m_CommandBuffers[i], 0, 1, vertexBuffers, offsets);
 			vkCmdBindIndexBuffer(m_CommandBuffers[i], m_IndexBuffer, 0, VK_INDEX_TYPE_UINT32);
-
 			vkCmdBindDescriptorSets(m_CommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_PipelineLayout, 0, 1, &m_DescriptorSets[i], 0, nullptr);
-			vkCmdDrawIndexed(m_CommandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
+
+			vkCmdDrawIndexed(m_CommandBuffers[i], static_cast<uint32_t>(m_VertexIndices.size()), 1, 0, 0, 0);
+			vkCmdDrawIndexed(m_CommandBuffers[i], static_cast<uint32_t>(m_Vertex2Indices.size()), 1, m_VertexIndices.size(), m_ModelVertexes.size(), 1);
+
+			/*
+			vkCmdBindIndexBuffer(m_CommandBuffers[i], m_IndexBuffer, 300000, VK_INDEX_TYPE_UINT32);
+			vkCmdDrawIndexed(m_CommandBuffers[i], static_cast<uint32_t>(m_Vertex2Indices.size()), 1, 0, 0, 0);
+			*/
+			/*
+			vkCmdBindVertexBuffers(m_CommandBuffers[i], 0, 1, vertexBuffers, offsets);
+			vkCmdBindIndexBuffer(m_CommandBuffers[i], m_IndexBuffer, 30000, VK_INDEX_TYPE_UINT32);
+			vkCmdBindDescriptorSets(m_CommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_PipelineLayout, 0, 1, &m_DescriptorSets[i], 0, nullptr);
+			vkCmdDrawIndexed(m_CommandBuffers[i], static_cast<uint32_t>(m_Vertex2Indices.size()), 1, 0, 0, 1);
+			*/
 
 			if (isImGuiWindowCreated)
 			{
@@ -1841,7 +1897,6 @@ so s() shouldn't have a for loop, but should have code to 'figure out which inde
 		auto currentTime = std::chrono::high_resolution_clock::now();
 		float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
-		//TODO(JohnMir): Understand the math here
 		UniformBufferObject ubo = {};
 		ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 		ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
