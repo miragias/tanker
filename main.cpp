@@ -51,7 +51,9 @@ int WIDTH = 1400;
 int HEIGHT = 1000;
 const int MAX_FRAMES_IN_FLIGHT = 2;
 
-const std::vector<const char*> validationLayers = { "VK_LAYER_LUNARG_standard_validation" };
+
+//NOTE(JohnMir): Make sure the SDK bin folder (with the layers json is set to the variable $VK_LAYER_PATH
+const std::vector<const char*> validationLayers = { "VK_LAYER_KHRONOS_validation" };
 const std::vector<const char*> deviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
 
 #ifdef NDEBUG
@@ -276,8 +278,10 @@ private:
 		createCommandPool();
 		createDepthResources();
 		createFramebuffers();
+
 		createTextureImage();
 		createTextureImageView();
+
 		createTextureSampler();
 		loadModel(false);
 		loadModel(true);
@@ -462,16 +466,20 @@ private:
 		std::vector<VkLayerProperties> availableLayers(layerCount);
 		vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
 
-		for (const char* layerName : validationLayers) {
+		for (const char* layerName : validationLayers) 
+		{
 			bool layerFound = false;
 
-			for (const auto& layerProperties : availableLayers) {
-				if (strcmp(layerName, layerProperties.layerName) == 0) {
+			for (const auto& layerProperties : availableLayers) 
+			{
+				if (strcmp(layerName, layerProperties.layerName) == 0) 
+				{
 					layerFound = true;
 					break;
 				}
 			}
-			if (!layerFound) {
+			if (!layerFound) 
+			{
 				return false;
 			}
 		}
@@ -1389,11 +1397,11 @@ private:
 		void* data2;
 
 		vkMapMemory(m_Device, stagingBufferMemory, 0, dummyModelSize, 0, &data);
-		vkMapMemory(m_Device, stagingBufferMemory, dummyModelSize, model2Size, 0, &data2);
-
 		memcpy(data, m_ModelVertexes.data(), dummyModelSize);
-		memcpy(data2, m_Model2Vertexes.data(), model2Size);
+		vkUnmapMemory(m_Device, stagingBufferMemory);
 
+		vkMapMemory(m_Device, stagingBufferMemory, dummyModelSize, model2Size, 0, &data2);
+		memcpy(data2, m_Model2Vertexes.data(), model2Size);
 		vkUnmapMemory(m_Device, stagingBufferMemory);
 
 		createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
@@ -1419,8 +1427,10 @@ private:
 		void* data;
 		void* data2;
 		vkMapMemory(m_Device, stagingBufferMemory, 0, dummyModelSize, 0, &data);
-		vkMapMemory(m_Device, stagingBufferMemory, dummyModelSize, dummyModelSize2, 0, &data2);
 		memcpy(data, m_VertexIndices.data(), dummyModelSize);
+		vkUnmapMemory(m_Device, stagingBufferMemory);
+
+		vkMapMemory(m_Device, stagingBufferMemory, dummyModelSize, dummyModelSize2, 0, &data2);
 		memcpy(data2, m_Vertex2Indices.data(), dummyModelSize2);
 		vkUnmapMemory(m_Device, stagingBufferMemory);
 
