@@ -737,6 +737,7 @@ private:
 		createDescriptorPool();
 		createDescriptorSets();
 		createCommandBuffers();
+		setupCommandBuffers();
 	}
 
 	void cleanupSwapChain()
@@ -1744,7 +1745,7 @@ private:
 			{
 				imGuiSetupWindow();
 				isImGuiWindowCreated = true;
-				SetupCommandBuffers();
+				setupCommandBuffers();
 			}
 			updateUniformBuffer();
 			drawFrame();
@@ -1763,7 +1764,7 @@ standard practice is to write a command buffer every frame (which is what you ar
 the only problem is you are also writing every other command buffer, when you just need to write the 1 for the current index
 so s() shouldn't have a for loop, but should have code to 'figure out which index to use'"
 */
-	void SetupCommandBuffers()
+	void setupCommandBuffers()
 	{
 		for (size_t i = 0; i < m_CommandBuffers.size(); i++)
 		{
@@ -1800,16 +1801,6 @@ so s() shouldn't have a for loop, but should have code to 'figure out which inde
 			vkCmdDrawIndexed(m_CommandBuffers[i], static_cast<uint32_t>(m_VertexIndices.size()), 1, 0, 0, 0);
 			vkCmdDrawIndexed(m_CommandBuffers[i], static_cast<uint32_t>(m_Vertex2Indices.size()), 1, m_VertexIndices.size(), m_ModelVertexes.size(), 1);
 
-			/*
-			vkCmdBindIndexBuffer(m_CommandBuffers[i], m_IndexBuffer, 300000, VK_INDEX_TYPE_UINT32);
-			vkCmdDrawIndexed(m_CommandBuffers[i], static_cast<uint32_t>(m_Vertex2Indices.size()), 1, 0, 0, 0);
-			*/
-			/*
-			vkCmdBindVertexBuffers(m_CommandBuffers[i], 0, 1, vertexBuffers, offsets);
-			vkCmdBindIndexBuffer(m_CommandBuffers[i], m_IndexBuffer, 30000, VK_INDEX_TYPE_UINT32);
-			vkCmdBindDescriptorSets(m_CommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_PipelineLayout, 0, 1, &m_DescriptorSets[i], 0, nullptr);
-			vkCmdDrawIndexed(m_CommandBuffers[i], static_cast<uint32_t>(m_Vertex2Indices.size()), 1, 0, 0, 1);
-			*/
 
 			if (isImGuiWindowCreated)
 			{
