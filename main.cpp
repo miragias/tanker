@@ -242,9 +242,6 @@ private:
 	size_t m_CurrentFrame = 0;
 	bool m_FrameBufferResized = false;
 
-	//imgui
-	bool isImGuiWindowCreated = false;
-
 	void initWindow()
 	{
 		glfwInit();
@@ -329,18 +326,13 @@ private:
 		ImGui::Render();
 	}
 
-	void recreateImGuiWindow() 
+	void recreateImguiContext() 
 	{
-		if (!isImGuiWindowCreated)
-		{
-			ImGui_ImplVulkan_Shutdown();
-			ImGui_ImplGlfw_Shutdown();
-			ImGui::DestroyContext();
-			recreateSwapChain();
-			initImGui(float(m_SwapChainExtent.width), float(m_SwapChainExtent.height));
-			imGuiSetupWindow();
-			isImGuiWindowCreated = true;
-		}
+		ImGui_ImplVulkan_Shutdown();
+		ImGui_ImplGlfw_Shutdown();
+		ImGui::DestroyContext();
+		initImGui(float(m_SwapChainExtent.width), float(m_SwapChainExtent.height));
+		imGuiSetupWindow();
 	}
 
 	void initImGui(float width, float height) 
@@ -726,6 +718,7 @@ private:
 			glfwGetFramebufferSize(m_Window, &width, &height);
 		}
 
+
 		vkDeviceWaitIdle(m_Device);
 		cleanupSwapChain();
 		createSwapChain();
@@ -736,6 +729,7 @@ private:
 		createUniformBuffers();
 		createDescriptorPool();
 		createDescriptorSets();
+		recreateImguiContext();
 		createCommandBuffers();
 		setupCommandBuffers();
 	}
@@ -1741,12 +1735,8 @@ private:
 		{
 			glfwPollEvents();
 
-			if (!isImGuiWindowCreated)
-			{
-				imGuiSetupWindow();
-				isImGuiWindowCreated = true;
-				setupCommandBuffers();
-			}
+			imGuiSetupWindow();
+			setupCommandBuffers();
 			updateUniformBuffer();
 			drawFrame();
 		}
@@ -1774,7 +1764,8 @@ so s() shouldn't have a for loop, but should have code to 'figure out which inde
 
 			size_t frameFenceIndex = (m_CurrentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 			vkWaitForFences(m_Device, 1, &m_InFlightFences[frameFenceIndex], VK_TRUE, UINT64_MAX);
-			if (vkBeginCommandBuffer(m_CommandBuffers[i], &beginInfo) != VK_SUCCESS) {
+			if (vkBeginCommandBuffer(m_CommandBuffers[i], &beginInfo) != VK_SUCCESS) 
+			{
 				throw std::runtime_error("failed to begin recording command buffer!");
 			}
 
@@ -1802,10 +1793,7 @@ so s() shouldn't have a for loop, but should have code to 'figure out which inde
 			vkCmdDrawIndexed(m_CommandBuffers[i], static_cast<uint32_t>(m_Vertex2Indices.size()), 1, m_VertexIndices.size(), m_ModelVertexes.size(), 1);
 
 
-			if (isImGuiWindowCreated)
-			{
-				ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), m_CommandBuffers[i]);
-			}
+			ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), m_CommandBuffers[i]);
 
 			vkCmdEndRenderPass(m_CommandBuffers[i]);
 
@@ -1814,7 +1802,6 @@ so s() shouldn't have a for loop, but should have code to 'figure out which inde
 				throw std::runtime_error("failed to record command buffer!");
 			}
 		}
-		isImGuiWindowCreated = false;
 	}
 
 	void drawFrame()
@@ -1826,16 +1813,8 @@ so s() shouldn't have a for loop, but should have code to 'figure out which inde
 
 		VkResult result = vkAcquireNextImageKHR(m_Device, m_SwapChain, UINT64_MAX, m_ImageAvailableSemaphores[m_CurrentFrame], VK_NULL_HANDLE, &m_ImageIndex);
 
-		if (result == VK_ERROR_OUT_OF_DATE_KHR) {
-			recreateSwapChain();
-			recreateImGuiWindow();
-			return;
-		}
-		else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
-			throw std::runtime_error("failed to acquire swap chain image!");
-		}
-
-		if (m_ImagesInFlight[m_ImageIndex] != VK_NULL_HANDLE) {
+		if (m_ImagesInFlight[m_ImageIndex] != VK_NULL_HANDLE) 
+		{
 			vkWaitForFences(m_Device, 1, &m_ImagesInFlight[m_ImageIndex], VK_TRUE, UINT64_MAX);
 		}
 		m_ImagesInFlight[m_ImageIndex] = m_ImagesInFlight[m_CurrentFrame];
@@ -1860,7 +1839,8 @@ so s() shouldn't have a for loop, but should have code to 'figure out which inde
 		submitInfo.pSignalSemaphores = signalSemaphores;
 
 		vkResetFences(m_Device, 1, &m_InFlightFences[m_CurrentFrame]);
-		if (vkQueueSubmit(m_GraphicsQueue, 1, &submitInfo, m_InFlightFences[m_CurrentFrame]) != VK_SUCCESS) {
+		if (vkQueueSubmit(m_GraphicsQueue, 1, &submitInfo, m_InFlightFences[m_CurrentFrame]) != VK_SUCCESS) 
+		{
 			throw std::runtime_error("failed to submit draw command buffer!");
 		}
 		//
@@ -1879,10 +1859,10 @@ so s() shouldn't have a for loop, but should have code to 'figure out which inde
 
 		result = vkQueuePresentKHR(m_PresentQueue, &presentInfo);
 
-		if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || m_FrameBufferResized) {
+		if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || m_FrameBufferResized) 
+		{
 			m_FrameBufferResized = false;
 			recreateSwapChain();
-			recreateImGuiWindow();
 		}
 		else if (result != VK_SUCCESS) {
 			throw std::runtime_error("failed to present swap chain image!");
