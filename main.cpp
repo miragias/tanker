@@ -186,18 +186,17 @@ public:
 	}
 
 private:
-	GLFWwindow* m_Window;
 
+	//Main vulkan context (unchanged stuff)
+	GLFWwindow* m_Window;
 	VkInstance m_Instance;
 	VkPhysicalDevice m_PhysicalDevice = VK_NULL_HANDLE;
 	VkSurfaceKHR m_Surface;
 	VkDevice m_Device;
 	QueueFamilyIndices m_QueueFamilyIndicesUsed;
 	VkDebugUtilsMessengerEXT m_Callback;
-
 	VkQueue m_GraphicsQueue;
 	VkQueue m_PresentQueue;
-
 
 	VkSwapchainKHR m_SwapChain;
 	std::vector<VkImage> m_SwapChainImages;
@@ -352,13 +351,12 @@ private:
 		int texWidth, texHeight;
 		io.Fonts->GetTexDataAsRGBA32(&fontData, &texWidth, &texHeight);
 
-		QueueFamilyIndices ind = findQueueFamilies(m_PhysicalDevice);
 		ImGui_ImplGlfw_InitForVulkan(m_Window, true);
 		ImGui_ImplVulkan_InitInfo init_info = {};
 		init_info.Instance = m_Instance;
 		init_info.PhysicalDevice = m_PhysicalDevice;
 		init_info.Device = m_Device;
-		init_info.QueueFamily = ind.graphicsFamily.value();
+		init_info.QueueFamily = m_QueueFamilyIndicesUsed.graphicsFamily.value();
 		init_info.Queue = m_PresentQueue;
 		init_info.PipelineCache = VK_NULL_HANDLE;
 		init_info.DescriptorPool = m_DescriptorPool;
@@ -526,7 +524,7 @@ private:
 
 	bool isDeviceSuitable(VkPhysicalDevice device) 
 	{
-		QueueFamilyIndices indices = findQueueFamilies(device);
+		m_QueueFamilyIndicesUsed = findQueueFamilies(device);
 
 		bool extensionsSupported = checkDeviceExtensionSupport(device);
 
@@ -543,16 +541,14 @@ private:
 		VkPhysicalDeviceFeatures supportedFeatures;
 		vkGetPhysicalDeviceFeatures(device, &supportedFeatures);
 
-		return indices.isComplete() && extensionsSupported && swapChainAdequate && supportedFeatures.samplerAnisotropy;
+		return m_QueueFamilyIndicesUsed.isComplete() && extensionsSupported && swapChainAdequate && supportedFeatures.samplerAnisotropy;
 	}
 
 
 	void createLogicalDevice() 
 	{
-		QueueFamilyIndices indices = findQueueFamilies(m_PhysicalDevice);
-
 		std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
-		std::set<uint32> uniqueQueueFamilies = { indices.graphicsFamily.value(), indices.presentFamily.value() };
+		std::set<uint32> uniqueQueueFamilies = { m_QueueFamilyIndicesUsed.graphicsFamily.value(), m_QueueFamilyIndicesUsed.presentFamily.value() };
 
 		float queuePriority = 1.0f;
 		for (uint32_t queueFamily : uniqueQueueFamilies)
@@ -593,8 +589,8 @@ private:
 		{
 			throw std::runtime_error("failed to create logical device!");
 		}
-		vkGetDeviceQueue(m_Device, indices.graphicsFamily.value(), 0, &m_GraphicsQueue);
-		vkGetDeviceQueue(m_Device, indices.presentFamily.value(), 0, &m_PresentQueue);
+		vkGetDeviceQueue(m_Device, m_QueueFamilyIndicesUsed.graphicsFamily.value(), 0, &m_GraphicsQueue);
+		vkGetDeviceQueue(m_Device, m_QueueFamilyIndicesUsed.presentFamily.value(), 0, &m_PresentQueue);
 	}
 
 	void createSwapChain() 
@@ -623,10 +619,9 @@ private:
 		createInfo.imageArrayLayers = 1;
 		createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-		QueueFamilyIndices indices = findQueueFamilies(m_PhysicalDevice);
-		uint32 queueFamilyIndices[] = { indices.graphicsFamily.value(), indices.presentFamily.value() };
+		uint32 queueFamilyIndices[] = { m_QueueFamilyIndicesUsed.graphicsFamily.value(), m_QueueFamilyIndicesUsed.presentFamily.value() };
 
-		if (indices.graphicsFamily != indices.presentFamily)
+		if (m_QueueFamilyIndicesUsed.graphicsFamily != m_QueueFamilyIndicesUsed.presentFamily)
 		{
 			createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
 			createInfo.queueFamilyIndexCount = 2;
