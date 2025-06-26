@@ -42,9 +42,10 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
+#include "stb_image.h"
 
 #include <chrono>
+#include "imgui/imgui_impl_vulkan.h"
 
 typedef uint32_t uint32;
 int WIDTH = 1400;
@@ -63,9 +64,11 @@ const bool enableValidationLayers = true;
 #endif
 
 
-VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pCallback) {
+VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pCallback) 
+{
 	auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
-	if (func != nullptr) {
+	if (func != nullptr) 
+	{
 		return func(instance, pCreateInfo, pAllocator, pCallback);
 	}
 	else {
@@ -91,7 +94,8 @@ struct QueueFamilyIndices {
 	}
 };
 
-struct SwapChainSupportDetails {
+struct SwapChainSupportDetails 
+{
 	VkSurfaceCapabilitiesKHR capabilities;
 	std::vector<VkSurfaceFormatKHR> formats;
 	std::vector<VkPresentModeKHR> presentModes;
@@ -188,6 +192,7 @@ private:
 	VkPhysicalDevice m_PhysicalDevice = VK_NULL_HANDLE;
 	VkSurfaceKHR m_Surface;
 	VkDevice m_Device;
+	QueueFamilyIndices m_QueueFamilyIndicesUsed;
 	VkDebugUtilsMessengerEXT m_Callback;
 
 	VkQueue m_GraphicsQueue;
@@ -266,6 +271,7 @@ private:
 		setupDebugCallback();
 		createSurface();
 		pickPhysicalDevice();
+		//
 		createLogicalDevice();
 		createSwapChain();
 		createImageViews();
@@ -371,14 +377,15 @@ private:
 		ImGui_ImplVulkan_DestroyFontUploadObjects();
 	}
 
-	void createInstance() {
+	void createInstance() 
+	{
 		if (enableValidationLayers && !checkValidationLayerSupport()) {
 			throw std::runtime_error("validation layers requested, but not available!");
 		}
 
 		VkApplicationInfo  appInfo = {};
 		appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-		appInfo.pApplicationName = "Hello Triangle";
+		appInfo.pApplicationName = "Tanker";
 		appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
 		appInfo.pEngineName = "No Engine";
 		appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
@@ -392,7 +399,8 @@ private:
 		createInfo.enabledExtensionCount = static_cast<uint32>(instanceInfoExtensions.size());
 		createInfo.ppEnabledExtensionNames = instanceInfoExtensions.data();
 
-		if (enableValidationLayers) {
+		if (enableValidationLayers) 
+		{
 			createInfo.enabledLayerCount = static_cast<uint32>(validationLayers.size());
 			createInfo.ppEnabledLayerNames = validationLayers.data();
 		}
@@ -416,7 +424,8 @@ private:
 		}
 	}
 
-	void setupDebugCallback() {
+	void setupDebugCallback() 
+	{
 		if (!enableValidationLayers) return;
 
 		VkDebugUtilsMessengerCreateInfoEXT createInfo = {};
@@ -430,8 +439,17 @@ private:
 		}
 	}
 
-	void createSurface() {
-		if (glfwCreateWindowSurface(m_Instance, m_Window, nullptr, &m_Surface) != VK_SUCCESS) {
+	static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData) 
+	{
+		std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
+
+		return VK_FALSE;
+	}
+
+	void createSurface() 
+	{
+		if (glfwCreateWindowSurface(m_Instance, m_Window, nullptr, &m_Surface) != VK_SUCCESS) 
+		{
 			throw std::runtime_error("failed to create window surface!");
 		}
 	}
@@ -478,13 +496,6 @@ private:
 		return true;
 	}
 
-	static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData) 
-	{
-		std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
-
-		return VK_FALSE;
-	}
-
 	void pickPhysicalDevice() 
 	{
 		uint32_t deviceCount = 0;
@@ -520,7 +531,10 @@ private:
 		bool extensionsSupported = checkDeviceExtensionSupport(device);
 
 		bool swapChainAdequate = false;
-		if (extensionsSupported) {
+
+		//NOTE(JohnMir): We only check for swapchain for now
+		if (extensionsSupported) 
+		{
 			SwapChainSupportDetails swapChainSupport = querySwapChainSupport(device);
 			swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
 		}
@@ -1651,7 +1665,8 @@ private:
 		return buffer;
 	}
 
-	bool checkDeviceExtensionSupport(VkPhysicalDevice device) {
+	bool checkDeviceExtensionSupport(VkPhysicalDevice device) 
+	{
 		uint32_t extensionCount;
 		vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
 
@@ -1660,7 +1675,8 @@ private:
 
 		std::set<std::string> requiredExtensions(deviceExtensions.begin(), deviceExtensions.end());
 
-		for (const auto& extension : availableExtensions) {
+		for (const auto& extension : availableExtensions) 
+		{
 			requiredExtensions.erase(extension.extensionName);
 		}
 
