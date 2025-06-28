@@ -198,10 +198,12 @@ private:
 	VkQueue m_GraphicsQueue;
 	VkQueue m_PresentQueue;
 
+	//Swapchain(I think it can go with the above)
 	VkSwapchainKHR m_SwapChain;
-	std::vector<VkImage> m_SwapChainImages;
 	VkFormat m_SwapChainImageFormat;
 	VkExtent2D m_SwapChainExtent;
+	std::vector<VkImage> m_SwapChainImages;
+
 	std::vector<VkImageView> m_SwapChainImageViews;
 	std::vector<VkFramebuffer> m_SwapChainFrameBuffers;
 
@@ -266,14 +268,19 @@ private:
 	}
 
 	void initVulkan() {
+
+		//Basic init
 		createInstance();
 		setupDebugCallback();
 		createSurface();
 		pickPhysicalDevice();
-		//
 		createLogicalDevice();
+
+		//Create swap chain with image views
 		createSwapChain();
 		createImageViews();
+
+		//
 		createRenderPass();
 		createDescriptorSetLayout();
 		createGraphicsPipeline();
@@ -283,8 +290,8 @@ private:
 
 		createTextureImage();
 		createTextureImageView();
-
 		createTextureSampler();
+
 		loadModel(false);
 		loadModel(true);
 
@@ -530,7 +537,6 @@ private:
 
 		bool swapChainAdequate = false;
 
-		//NOTE(JohnMir): We only check for swapchain for now
 		if (extensionsSupported) 
 		{
 			SwapChainSupportDetails swapChainSupport = querySwapChainSupport(device);
@@ -727,7 +733,6 @@ private:
 			glfwGetFramebufferSize(m_Window, &width, &height);
 		}
 
-
 		vkDeviceWaitIdle(m_Device);
 		cleanupSwapChain();
 		createSwapChain();
@@ -771,10 +776,12 @@ private:
 		vkDestroyDescriptorPool(m_Device, m_DescriptorPool, nullptr);
 	}
 
-	void createImageViews() {
+	void createImageViews() 
+	{
 		m_SwapChainImageViews.resize(m_SwapChainImages.size());
 
-		for (uint32_t i = 0; i < m_SwapChainImages.size(); i++) {
+		for (uint32_t i = 0; i < m_SwapChainImages.size(); i++) 
+		{
 			m_SwapChainImageViews[i] = createImageView(m_SwapChainImages[i], m_SwapChainImageFormat , VK_IMAGE_ASPECT_COLOR_BIT);
 		}
 	}
@@ -793,7 +800,8 @@ private:
 		viewInfo.subresourceRange.layerCount = 1;
 
 		VkImageView imageView;
-		if (vkCreateImageView(m_Device, &viewInfo, nullptr, &imageView) != VK_SUCCESS) {
+		if (vkCreateImageView(m_Device, &viewInfo, nullptr, &imageView) != VK_SUCCESS) 
+		{
 			throw std::runtime_error("failed to create texture image view!");
 		}
 
@@ -1388,9 +1396,10 @@ private:
 
 	void createVertexBuffer()
 	{
-		size_t dummyModelSize = sizeof(m_ModelVertexes[0]) * m_ModelVertexes.size();
+		size_t model1Size = sizeof(m_ModelVertexes[0]) * m_ModelVertexes.size();
 		size_t model2Size = sizeof(m_Model2Vertexes[0]) * m_Model2Vertexes.size();
-		VkDeviceSize bufferSize = 100000000; //Picking an arbitrary big size
+
+		VkDeviceSize bufferSize = model1Size + model2Size;
 
 		VkBuffer stagingBuffer;
 		VkDeviceMemory stagingBufferMemory;
@@ -1400,11 +1409,11 @@ private:
 		void* data;
 		void* data2;
 
-		vkMapMemory(m_Device, stagingBufferMemory, 0, dummyModelSize, 0, &data);
-		memcpy(data, m_ModelVertexes.data(), dummyModelSize);
+		vkMapMemory(m_Device, stagingBufferMemory, 0, model1Size, 0, &data);
+		memcpy(data, m_ModelVertexes.data(), model1Size);
 		vkUnmapMemory(m_Device, stagingBufferMemory);
 
-		vkMapMemory(m_Device, stagingBufferMemory, dummyModelSize, model2Size, 0, &data2);
+		vkMapMemory(m_Device, stagingBufferMemory, model1Size, model2Size, 0, &data2);
 		memcpy(data2, m_Model2Vertexes.data(), model2Size);
 		vkUnmapMemory(m_Device, stagingBufferMemory);
 
@@ -1623,6 +1632,7 @@ private:
 		m_ImageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
 		m_RenderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
 		m_InFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
+
 		m_ImagesInFlight.resize(m_SwapChainImages.size(), VK_NULL_HANDLE);
 
 		VkSemaphoreCreateInfo semaphoreInfo = {};
@@ -1742,15 +1752,19 @@ private:
 
 
 	void mainLoop() {
+
+		//Engine loop
 		while (!glfwWindowShouldClose(m_Window)) 
 		{
-			glfwPollEvents();
+			glfwPollEvents(); //Input
+			imGuiSetupWindow(); //Imgui
+			setupCommandBuffers(); //Set rendering commands
 
-			imGuiSetupWindow();
-			setupCommandBuffers();
-			updateUniformBuffer();
-			drawFrame();
+			//updateUniformBuffer(); //Do something
+			drawFrame(); //Render
 		}
+
+		//Shutdown
 		vkDeviceWaitIdle(m_Device);
 		ImGui_ImplVulkan_Shutdown();
 		ImGui_ImplGlfw_Shutdown();
@@ -1767,6 +1781,7 @@ so s() shouldn't have a for loop, but should have code to 'figure out which inde
 */
 	void setupCommandBuffers()
 	{
+		//TODO: We are writing to all x command buffers while we need to write only for the command buffer for the current frame!!! (We have x frames and x command buffers)
 		for (size_t i = 0; i < m_CommandBuffers.size(); i++)
 		{
 			VkCommandBufferBeginInfo beginInfo = {};
@@ -1804,7 +1819,7 @@ so s() shouldn't have a for loop, but should have code to 'figure out which inde
 			vkCmdDrawIndexed(m_CommandBuffers[i], static_cast<uint32_t>(m_Vertex2Indices.size()), 1, m_VertexIndices.size(), m_ModelVertexes.size(), 1);
 
 
-			ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), m_CommandBuffers[i]);
+			//ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), m_CommandBuffers[i]);
 
 			vkCmdEndRenderPass(m_CommandBuffers[i]);
 
@@ -1822,15 +1837,14 @@ so s() shouldn't have a for loop, but should have code to 'figure out which inde
 		//The vkWaitForFences function takes an array of fences and waits for either any or all of them to be signaled before returning.
 		vkWaitForFences(m_Device, 1, &m_InFlightFences[m_CurrentFrame], VK_TRUE, UINT64_MAX);
 
-		VkResult result = vkAcquireNextImageKHR(m_Device, m_SwapChain, UINT64_MAX, m_ImageAvailableSemaphores[m_CurrentFrame], VK_NULL_HANDLE, &m_ImageIndex);
+		VkResult result = vkAcquireNextImageKHR(m_Device, m_SwapChain, UINT64_MAX,
+			m_ImageAvailableSemaphores[m_CurrentFrame], VK_NULL_HANDLE, &m_ImageIndex);
 
 		if (m_ImagesInFlight[m_ImageIndex] != VK_NULL_HANDLE) 
 		{
 			vkWaitForFences(m_Device, 1, &m_ImagesInFlight[m_ImageIndex], VK_TRUE, UINT64_MAX);
 		}
-		m_ImagesInFlight[m_ImageIndex] = m_ImagesInFlight[m_CurrentFrame];
-
-		updateUniformBuffer();
+		m_ImagesInFlight[m_ImageIndex] = m_InFlightFences[m_CurrentFrame];
 
 		//Submit the command buffers for drawing
 		VkSubmitInfo submitInfo = {};
@@ -1882,6 +1896,8 @@ so s() shouldn't have a for loop, but should have code to 'figure out which inde
 		m_CurrentFrame = (m_CurrentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 	}
 
+	//Just rotating around the object
+	//TODO: Hot reload this and divide the time /2 as an example
 	void updateUniformBuffer()
 	{
 		static auto startTime = std::chrono::high_resolution_clock::now();
