@@ -225,9 +225,9 @@ private:
 	VkImageView m_TextureImageView[NUMBER_OF_IMAGES];
 	VkSampler m_TextureSampler[NUMBER_OF_IMAGES];
 
-	VkImage depthImage;
-	VkDeviceMemory depthImageMemory;
-	VkImageView depthImageView;
+	VkImage m_DepthImage;
+	VkDeviceMemory m_DepthImageMemory;
+	VkImageView m_DepthImageView;
 
 	uint32_t m_ImageIndex = 0;
 
@@ -1053,7 +1053,7 @@ private:
 			std::array<VkImageView, 2> attachments =
 			{
 				m_SwapChainImageViews[i],
-				depthImageView
+				m_DepthImageView
 			};
 
 			VkFramebufferCreateInfo framebufferInfo = {};
@@ -1090,8 +1090,10 @@ private:
 	{
 		VkFormat depthFormat = findDepthFormat();
 
-		createImage(m_SwapChainExtent.width, m_SwapChainExtent.height, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, depthImage, depthImageMemory);
-		depthImageView = createImageView(depthImage, depthFormat , VK_IMAGE_ASPECT_DEPTH_BIT);
+		createImage(m_SwapChainExtent.width, m_SwapChainExtent.height, depthFormat,
+			VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_DepthImage, m_DepthImageMemory);
+		m_DepthImageView = createImageView(m_DepthImage, depthFormat , VK_IMAGE_ASPECT_DEPTH_BIT);
 		//transitionImageLayout(depthImage, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 	}
 
@@ -1912,11 +1914,15 @@ private:
 		for (size_t i = 0; i < NUMBER_OF_IMAGES; ++i)
 		{
 			vkDestroySampler(m_Device, m_TextureSampler[i], nullptr);
-			vkDestroyImageView(m_Device, m_TextureImageView[i], nullptr);
 
+			vkDestroyImageView(m_Device, m_TextureImageView[i], nullptr);
 			vkDestroyImage(m_Device, m_TextureImage[i], nullptr);
 			vkFreeMemory(m_Device, m_TextureImageMemory[i], nullptr);
 		}
+
+		vkDestroyImageView(m_Device, m_DepthImageView, nullptr);
+		vkDestroyImage(m_Device, m_DepthImage, nullptr);
+		vkFreeMemory(m_Device, m_DepthImageMemory, nullptr);
 
 		vkDestroyDescriptorSetLayout(m_Device, m_DescriptorSetLayout, nullptr);
 
