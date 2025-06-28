@@ -743,7 +743,6 @@ private:
 		createDescriptorSets();
 		recreateImguiContext();
 		createCommandBuffers();
-		//setupCommandBuffers(m_ImageIndex);
 	}
 
 	void cleanupSwapChain()
@@ -1756,7 +1755,7 @@ private:
 		{
 			glfwPollEvents(); //Input
 			imGuiSetupWindow(); //Imgui
-			updateUniformBuffer(); //Do something
+			ProcessSimulation(); //Do something
 			drawFrame(); //Render
 		}
 
@@ -1800,11 +1799,10 @@ private:
 		vkCmdBindIndexBuffer(m_CommandBuffers[i], m_IndexBuffer, 0, VK_INDEX_TYPE_UINT32);
 		vkCmdBindDescriptorSets(m_CommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_PipelineLayout, 0, 1, &m_DescriptorSets[i], 0, nullptr);
 
-		//vkCmdDrawIndexed(m_CommandBuffers[i], static_cast<uint32_t>(m_VertexIndices.size()), 1, 0, 0, 0);
-		vkCmdDrawIndexed(m_CommandBuffers[i], static_cast<uint32_t>(m_Vertex2Indices.size()), 1, m_VertexIndices.size(), m_ModelVertexes.size(), 1);
+		vkCmdDrawIndexed(m_CommandBuffers[i], static_cast<uint32_t>(m_VertexIndices.size()), 1, 0, 0, 0);
+		vkCmdDrawIndexed(m_CommandBuffers[i], static_cast<uint32_t>(m_Vertex2Indices.size()), 1, m_VertexIndices.size(), m_ModelVertexes.size(), 0);
 
-
-		//ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), m_CommandBuffers[i]);
+		ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), m_CommandBuffers[i]);
 
 		vkCmdEndRenderPass(m_CommandBuffers[i]);
 
@@ -1886,7 +1884,7 @@ private:
 
 	//Just rotating around the object
 	//TODO: Hot reload this and divide the time /2 as an example
-	void updateUniformBuffer()
+	void ProcessSimulation()
 	{
 		static auto startTime = std::chrono::high_resolution_clock::now();
 
