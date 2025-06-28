@@ -1,6 +1,6 @@
-#include "imgui.h"
-#include "imgui_impl_glfw.h"
-#include "imgui_impl_vulkan.h"
+#include "imgui/imgui.h"
+#include "imgui/imgui_impl_glfw.h"
+#include "imgui/imgui_impl_vulkan.h"
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "Other/tiny_obj_loader.h"
 
@@ -45,7 +45,6 @@
 #include "stb_image.h"
 
 #include <chrono>
-#include "imgui/imgui_impl_vulkan.h"
 
 typedef uint32_t uint32;
 int WIDTH = 2000;
