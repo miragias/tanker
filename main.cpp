@@ -218,7 +218,7 @@ private:
 	VkBuffer m_VertexBuffer;
 	VkBuffer m_IndexBuffer;
 
-	VkDeviceMemory m_VertexBufferMemory;
+	VmaAllocation m_VertexBufferAllocation;
 	VkDeviceMemory m_IndexBufferMemory;
 	std::vector<VkDeviceMemory> m_UniformBuffersMemory;
 
@@ -436,10 +436,12 @@ private:
 		std::vector<VkExtensionProperties> extensions(extensionCount);
 		vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, extensions.data());
 
+		/*
 		std::cout << "available extension:" << std::endl;
 		for (const auto& extension : extensions) {
 			std::cout << "\t" << extension.extensionName << std::endl;
 		}
+		*/
 	}
 
 	void setupDebugCallback() 
@@ -1410,42 +1412,43 @@ private:
 
 	void CreateVertexBuffers()
 	{
+		//Creating vertex buffers for 2 objects
 		size_t model1Size = sizeof(m_ModelVertexes[0]) * m_ModelVertexes.size();
 		size_t model2Size = sizeof(m_Model2Vertexes[0]) * m_Model2Vertexes.size();
 
 		VkDeviceSize bufferSize = model1Size + model2Size;
 
 		VkBuffer stagingBuffer;
-		VkBufferCreateInfo bufferInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-		bufferInfo.size = bufferSize;
-		bufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 
-		VmaAllocationCreateInfo allocInfo = {};
-		allocInfo.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-
-		VmaAllocation allocation;
-		vmaCreateBuffer(m_Allocator, &bufferInfo, &allocInfo, &stagingBuffer, &allocation, nullptr);
-
-		VkDeviceMemory stagingBufferMemory = allocation->GetMemory();
+		VkBufferCreateInfo stagingBufferInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+		stagingBufferInfo.size = bufferSize;
+		stagingBufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+		VmaAllocationCreateInfo stagingAllocInfo = {};
+		stagingAllocInfo.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+		VmaAllocation stagingAllocation;
+		vmaCreateBuffer(m_Allocator, &stagingBufferInfo, &stagingAllocInfo, &stagingBuffer, &stagingAllocation, nullptr);
 
 		void* data;
-		void* data2;
-
-		vkMapMemory(m_Device, stagingBufferMemory, 0, model1Size, 0, &data);
+		vmaMapMemory(m_Allocator, stagingAllocation, &data);
 		memcpy(data, m_ModelVertexes.data(), model1Size);
-		vkUnmapMemory(m_Device, stagingBufferMemory);
+		memcpy(static_cast<char*>(data) + model1Size, m_Model2Vertexes.data(), model2Size);
+		vmaUnmapMemory(m_Allocator, stagingAllocation);
 
-		vkMapMemory(m_Device, stagingBufferMemory, model1Size, model2Size, 0, &data2);
-		memcpy(data2, m_Model2Vertexes.data(), model2Size);
-		vkUnmapMemory(m_Device, stagingBufferMemory);
+		//Vertex buffer 
+		VkBufferCreateInfo vertexBufferInfo = {};
+		vertexBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+		vertexBufferInfo.size = bufferSize;
+		vertexBufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+		vertexBufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+		VmaAllocationCreateInfo vertexAllocInfo = {};
+		vertexAllocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+		vmaCreateBuffer(m_Allocator, &vertexBufferInfo, &vertexAllocInfo, &m_VertexBuffer, &m_VertexBufferAllocation, nullptr);
 
-		createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_VertexBuffer, m_VertexBufferMemory);
-
+		//Fill the buffer
 		copyBuffer(stagingBuffer, m_VertexBuffer, bufferSize);
 
-		vkDestroyBuffer(m_Device, stagingBuffer, nullptr);
-		vkFreeMemory(m_Device, stagingBufferMemory, nullptr);
+		//Cleanup the staging buffer
+		vmaDestroyBuffer(m_Allocator, stagingBuffer, stagingAllocation);
 	}
 
 
@@ -1953,8 +1956,7 @@ private:
 		vkFreeMemory(m_Device, m_IndexBufferMemory, nullptr);
 
 		vkDestroyBuffer(m_Device, m_VertexBuffer, nullptr);
-		vkFreeMemory(m_Device, m_VertexBufferMemory, nullptr);
-
+		vmaFreeMemory(m_Allocator, m_VertexBufferAllocation);
 
 		for (size_t i = 0; i < m_SwapChainImages.size(); i++) {
 			vkDestroySemaphore(m_Device, m_RenderFinishedSemaphores[i], nullptr);
