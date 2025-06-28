@@ -48,10 +48,8 @@
 #include "imgui/imgui_impl_vulkan.h"
 
 typedef uint32_t uint32;
-int WIDTH = 1400;
+int WIDTH = 2000;
 int HEIGHT = 1000;
-const int MAX_FRAMES_IN_FLIGHT = 2;
-
 
 //NOTE(JohnMir): Make sure the SDK bin folder (with the layers json is set to the variable $VK_LAYER_PATH
 const std::vector<const char*> validationLayers = { "VK_LAYER_KHRONOS_validation" };
@@ -745,7 +743,7 @@ private:
 		createDescriptorSets();
 		recreateImguiContext();
 		createCommandBuffers();
-		setupCommandBuffers();
+		//setupCommandBuffers(m_ImageIndex);
 	}
 
 	void cleanupSwapChain()
@@ -1629,9 +1627,9 @@ private:
 
 	void createSyncObjects()
 	{
-		m_ImageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-		m_RenderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-		m_InFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
+		m_ImageAvailableSemaphores.resize(m_SwapChainImages.size());
+		m_RenderFinishedSemaphores.resize(m_SwapChainImages.size());
+		m_InFlightFences.resize(m_SwapChainImages.size());
 
 		m_ImagesInFlight.resize(m_SwapChainImages.size(), VK_NULL_HANDLE);
 
@@ -1643,7 +1641,7 @@ private:
 		fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
 
-		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+		for (size_t i = 0; i < m_SwapChainImages.size(); i++) {
 			if (vkCreateSemaphore(m_Device, &semaphoreInfo, nullptr, &m_ImageAvailableSemaphores[i]) != VK_SUCCESS ||
 				vkCreateSemaphore(m_Device, &semaphoreInfo, nullptr, &m_RenderFinishedSemaphores[i]) != VK_SUCCESS ||
 				vkCreateFence(m_Device, &fenceInfo, nullptr, &m_InFlightFences[i]) != VK_SUCCESS) {
@@ -1758,9 +1756,7 @@ private:
 		{
 			glfwPollEvents(); //Input
 			imGuiSetupWindow(); //Imgui
-			setupCommandBuffers(); //Set rendering commands
-
-			//updateUniformBuffer(); //Do something
+			updateUniformBuffer(); //Do something
 			drawFrame(); //Render
 		}
 
@@ -1771,62 +1767,50 @@ private:
 		ImGui::DestroyContext();
 	}
 
-	//EDIT(JohnMir): (Edit : 05_1_21 I think it's ok now i moved the setup to happen only once)
-	//	According to some guy from Lunar this shouldn't do a for loop. 
-	/*"The bigger issue is that you are recreating your command bufferS every frame
-vulkan-tutorial unfortunately posits that you shouldn't recreate command buffers. but this is backwards to standard practice
-standard practice is to write a command buffer every frame (which is what you are doing)
-the only problem is you are also writing every other command buffer, when you just need to write the 1 for the current index
-so s() shouldn't have a for loop, but should have code to 'figure out which index to use'"
-*/
-	void setupCommandBuffers()
+	void setupCommandBuffers(uint32 i)
 	{
-		//TODO: We are writing to all x command buffers while we need to write only for the command buffer for the current frame!!! (We have x frames and x command buffers)
-		for (size_t i = 0; i < m_CommandBuffers.size(); i++)
+		VkCommandBufferBeginInfo beginInfo = {};
+		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
+
+		size_t frameFenceIndex = (m_CurrentFrame + 1) % m_SwapChainImages.size();
+		vkWaitForFences(m_Device, 1, &m_InFlightFences[frameFenceIndex], VK_TRUE, UINT64_MAX);
+		if (vkBeginCommandBuffer(m_CommandBuffers[i], &beginInfo) != VK_SUCCESS) 
 		{
-			VkCommandBufferBeginInfo beginInfo = {};
-			beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-			beginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
+			throw std::runtime_error("failed to begin recording command buffer!");
+		}
 
-			size_t frameFenceIndex = (m_CurrentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
-			vkWaitForFences(m_Device, 1, &m_InFlightFences[frameFenceIndex], VK_TRUE, UINT64_MAX);
-			if (vkBeginCommandBuffer(m_CommandBuffers[i], &beginInfo) != VK_SUCCESS) 
-			{
-				throw std::runtime_error("failed to begin recording command buffer!");
-			}
+		VkRenderPassBeginInfo renderPassInfo = {};
+		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+		renderPassInfo.renderPass = m_RenderPass;
+		renderPassInfo.framebuffer = m_SwapChainFrameBuffers[i];
+		renderPassInfo.renderArea.offset = { 0, 0 };
+		renderPassInfo.renderArea.extent = m_SwapChainExtent;
+		renderPassInfo.clearValueCount = static_cast<uint32_t>(m_ClearValues.size());
+		renderPassInfo.pClearValues = m_ClearValues.data();
 
-			VkRenderPassBeginInfo renderPassInfo = {};
-			renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-			renderPassInfo.renderPass = m_RenderPass;
-			renderPassInfo.framebuffer = m_SwapChainFrameBuffers[i];
-			renderPassInfo.renderArea.offset = { 0, 0 };
-			renderPassInfo.renderArea.extent = m_SwapChainExtent;
-			renderPassInfo.clearValueCount = static_cast<uint32_t>(m_ClearValues.size());
-			renderPassInfo.pClearValues = m_ClearValues.data();
+		vkCmdBeginRenderPass(m_CommandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-			vkCmdBeginRenderPass(m_CommandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+		vkCmdBindPipeline(m_CommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_GraphicsPipeline);
 
-			vkCmdBindPipeline(m_CommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_GraphicsPipeline);
+		VkBuffer vertexBuffers[] = { m_VertexBuffer};
+		VkDeviceSize offsets[] = { 0};
 
-			VkBuffer vertexBuffers[] = { m_VertexBuffer};
-			VkDeviceSize offsets[] = { 0};
+		vkCmdBindVertexBuffers(m_CommandBuffers[i], 0, 1, vertexBuffers, offsets);
+		vkCmdBindIndexBuffer(m_CommandBuffers[i], m_IndexBuffer, 0, VK_INDEX_TYPE_UINT32);
+		vkCmdBindDescriptorSets(m_CommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_PipelineLayout, 0, 1, &m_DescriptorSets[i], 0, nullptr);
 
-			vkCmdBindVertexBuffers(m_CommandBuffers[i], 0, 1, vertexBuffers, offsets);
-			vkCmdBindIndexBuffer(m_CommandBuffers[i], m_IndexBuffer, 0, VK_INDEX_TYPE_UINT32);
-			vkCmdBindDescriptorSets(m_CommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_PipelineLayout, 0, 1, &m_DescriptorSets[i], 0, nullptr);
-
-			vkCmdDrawIndexed(m_CommandBuffers[i], static_cast<uint32_t>(m_VertexIndices.size()), 1, 0, 0, 0);
-			vkCmdDrawIndexed(m_CommandBuffers[i], static_cast<uint32_t>(m_Vertex2Indices.size()), 1, m_VertexIndices.size(), m_ModelVertexes.size(), 1);
+		//vkCmdDrawIndexed(m_CommandBuffers[i], static_cast<uint32_t>(m_VertexIndices.size()), 1, 0, 0, 0);
+		vkCmdDrawIndexed(m_CommandBuffers[i], static_cast<uint32_t>(m_Vertex2Indices.size()), 1, m_VertexIndices.size(), m_ModelVertexes.size(), 1);
 
 
-			//ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), m_CommandBuffers[i]);
+		//ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), m_CommandBuffers[i]);
 
-			vkCmdEndRenderPass(m_CommandBuffers[i]);
+		vkCmdEndRenderPass(m_CommandBuffers[i]);
 
-			if (vkEndCommandBuffer(m_CommandBuffers[i]) != VK_SUCCESS) 
-			{
-				throw std::runtime_error("failed to record command buffer!");
-			}
+		if (vkEndCommandBuffer(m_CommandBuffers[i]) != VK_SUCCESS) 
+		{
+			throw std::runtime_error("failed to record command buffer!");
 		}
 	}
 
@@ -1837,6 +1821,7 @@ so s() shouldn't have a for loop, but should have code to 'figure out which inde
 		//The vkWaitForFences function takes an array of fences and waits for either any or all of them to be signaled before returning.
 		vkWaitForFences(m_Device, 1, &m_InFlightFences[m_CurrentFrame], VK_TRUE, UINT64_MAX);
 
+		//Acquire an image from the swapchain
 		VkResult result = vkAcquireNextImageKHR(m_Device, m_SwapChain, UINT64_MAX,
 			m_ImageAvailableSemaphores[m_CurrentFrame], VK_NULL_HANDLE, &m_ImageIndex);
 
@@ -1844,6 +1829,10 @@ so s() shouldn't have a for loop, but should have code to 'figure out which inde
 		{
 			vkWaitForFences(m_Device, 1, &m_ImagesInFlight[m_ImageIndex], VK_TRUE, UINT64_MAX);
 		}
+
+		//Setup the cmd buffers for that image index
+		setupCommandBuffers(m_ImageIndex);
+
 		m_ImagesInFlight[m_ImageIndex] = m_InFlightFences[m_CurrentFrame];
 
 		//Submit the command buffers for drawing
@@ -1859,7 +1848,7 @@ so s() shouldn't have a for loop, but should have code to 'figure out which inde
 		submitInfo.commandBufferCount = 1;
 		submitInfo.pCommandBuffers = &m_CommandBuffers[m_ImageIndex];
 
-		VkSemaphore signalSemaphores[] = { m_RenderFinishedSemaphores[m_CurrentFrame] };
+		VkSemaphore signalSemaphores[] = { m_RenderFinishedSemaphores[m_ImageIndex] };
 		submitInfo.signalSemaphoreCount = 1;
 		submitInfo.pSignalSemaphores = signalSemaphores;
 
@@ -1868,7 +1857,6 @@ so s() shouldn't have a for loop, but should have code to 'figure out which inde
 		{
 			throw std::runtime_error("failed to submit draw command buffer!");
 		}
-		//
 
 		VkPresentInfoKHR presentInfo = {};
 		presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
@@ -1893,7 +1881,7 @@ so s() shouldn't have a for loop, but should have code to 'figure out which inde
 			throw std::runtime_error("failed to present swap chain image!");
 		}
 
-		m_CurrentFrame = (m_CurrentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+		m_CurrentFrame = (m_CurrentFrame + 1) % m_SwapChainImages.size();
 	}
 
 	//Just rotating around the object
@@ -1940,7 +1928,7 @@ so s() shouldn't have a for loop, but should have code to 'figure out which inde
 		vkFreeMemory(m_Device, m_VertexBufferMemory, nullptr);
 
 
-		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+		for (size_t i = 0; i < m_SwapChainImages.size(); i++) {
 			vkDestroySemaphore(m_Device, m_RenderFinishedSemaphores[i], nullptr);
 			vkDestroySemaphore(m_Device, m_ImageAvailableSemaphores[i], nullptr);
 			vkDestroyFence(m_Device, m_InFlightFences[i], nullptr);
