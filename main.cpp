@@ -364,21 +364,20 @@ private:
 		init_info.Queue = m_PresentQueue;
 		init_info.PipelineCache = VK_NULL_HANDLE;
 		init_info.DescriptorPool = m_DescriptorPool;
+		init_info.RenderPass = m_RenderPass;
 		init_info.Allocator = NULL;
 		init_info.MinImageCount = 2;
 		init_info.ImageCount = static_cast<uint32_t>(m_SwapChainImages.size());
 		init_info.CheckVkResultFn = NULL;
-
-		/*
-		ImGui_ImplVulkan_Init(&init_info, m_RenderPass);
+		ImGui_ImplVulkan_Init(&init_info);
 
 		// Setup Dear ImGui style
 		ImGui::StyleColorsDark();
 
+		/*
 		VkCommandBuffer commandBuffer = beginSingleTimeCommands();
 		ImGui_ImplVulkan_CreateFontsTexture(commandBuffer);
 		endSingleTimeCommands(commandBuffer);
-		ImGui_ImplVulkan_DestroyFontUploadObjects();
 		*/
 	}
 
