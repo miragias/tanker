@@ -1,6 +1,6 @@
-#include "imgui/imgui.h"
-#include "imgui/imgui_impl_glfw.h"
-#include "imgui/imgui_impl_vulkan.h"
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_vulkan.h"
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "Other/tiny_obj_loader.h"
 
@@ -368,6 +368,8 @@ private:
 		init_info.MinImageCount = 2;
 		init_info.ImageCount = static_cast<uint32_t>(m_SwapChainImages.size());
 		init_info.CheckVkResultFn = NULL;
+
+		/*
 		ImGui_ImplVulkan_Init(&init_info, m_RenderPass);
 
 		// Setup Dear ImGui style
@@ -377,6 +379,7 @@ private:
 		ImGui_ImplVulkan_CreateFontsTexture(commandBuffer);
 		endSingleTimeCommands(commandBuffer);
 		ImGui_ImplVulkan_DestroyFontUploadObjects();
+		*/
 	}
 
 	void createInstance() 
