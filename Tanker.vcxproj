@@ -183,6 +183,7 @@
     <ClInclude Include="imstb_truetype.h" />
     <ClInclude Include="Other\tiny_obj_loader.h" />
     <ClInclude Include="stb_image.h" />
+    <ClInclude Include="vk_mem_alloc.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -45,6 +45,8 @@
 #include "stb_image.h"
 
 #include <chrono>
+#define VMA_IMPLEMENTATION
+#include "vk_mem_alloc.h"
 
 typedef uint32_t uint32;
 int WIDTH = 2000;
@@ -242,6 +244,8 @@ private:
 	std::vector<VkFence> m_InFlightFences;
 	std::vector<VkFence> m_ImagesInFlight;
 
+	VmaAllocator m_Allocator;
+
 	size_t m_CurrentFrame = 0;
 	bool m_FrameBufferResized = false;
 
@@ -273,6 +277,16 @@ private:
 		pickPhysicalDevice();
 		createLogicalDevice();
 
+		VmaAllocatorCreateInfo allocatorInfo = {};
+		allocatorInfo.physicalDevice = m_PhysicalDevice; // Your VkPhysicalDevice
+		allocatorInfo.device = m_Device;                 // Your VkDevice
+		allocatorInfo.instance = m_Instance;             // Your VkInstance
+
+		if (vmaCreateAllocator(&allocatorInfo, &m_Allocator) != VK_SUCCESS)
+		{
+			throw std::runtime_error("failed to create VMA allocator!");
+		}
+
 		//Create swap chain with image views
 		createSwapChain();
 		createImageViews();
@@ -292,7 +306,7 @@ private:
 		loadModel(false);
 		loadModel(true);
 
-		createVertexBuffer();
+		CreateVertexBuffers();
 		createIndexBuffer();
 		createUniformBuffers();
 		createDescriptorPool();
@@ -1394,7 +1408,7 @@ private:
 		}
 	}
 
-	void createVertexBuffer()
+	void CreateVertexBuffers()
 	{
 		size_t model1Size = sizeof(m_ModelVertexes[0]) * m_ModelVertexes.size();
 		size_t model2Size = sizeof(m_Model2Vertexes[0]) * m_Model2Vertexes.size();
@@ -1402,9 +1416,17 @@ private:
 		VkDeviceSize bufferSize = model1Size + model2Size;
 
 		VkBuffer stagingBuffer;
-		VkDeviceMemory stagingBufferMemory;
-		createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+		VkBufferCreateInfo bufferInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+		bufferInfo.size = bufferSize;
+		bufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+
+		VmaAllocationCreateInfo allocInfo = {};
+		allocInfo.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+
+		VmaAllocation allocation;
+		vmaCreateBuffer(m_Allocator, &bufferInfo, &allocInfo, &stagingBuffer, &allocation, nullptr);
+
+		VkDeviceMemory stagingBufferMemory = allocation->GetMemory();
 
 		void* data;
 		void* data2;
