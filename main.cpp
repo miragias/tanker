@@ -1206,7 +1206,6 @@ private:
 		poolSizes[0].descriptorCount = static_cast<uint32_t>(m_SwapChainImages.size());
 		poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 		poolSizes[1].descriptorCount = static_cast<uint32_t>(m_SwapChainImages.size()) * 2;
-
 		//Imgui descriptorset
 		poolSizes[2].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 		poolSizes[2].descriptorCount = static_cast<uint32_t>(m_SwapChainImages.size());
@@ -1216,6 +1215,7 @@ private:
 		poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
 		poolInfo.pPoolSizes = poolSizes.data();
 		poolInfo.maxSets = static_cast<uint32_t>(m_SwapChainImages.size() + 1);;
+		poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
 
 		if (vkCreateDescriptorPool(m_Device, &poolInfo, nullptr, &m_DescriptorPool) != VK_SUCCESS) {
 			throw std::runtime_error("failed to create descriptor pool!");
@@ -1905,7 +1905,8 @@ private:
 		vkUnmapMemory(m_Device, m_UniformBuffersMemory[m_ImageIndex]);
 	}
 
-	void cleanup() {
+	void cleanup() 
+	{
 		cleanupSwapChain();
 
 		for (size_t i = 0; i < NUMBER_OF_IMAGES; ++i)
@@ -1945,7 +1946,6 @@ private:
 		vkDestroyInstance(m_Instance, nullptr);
 
 		glfwDestroyWindow(m_Window);
-
 		glfwTerminate();
 	}
 };
