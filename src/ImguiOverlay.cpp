@@ -6,11 +6,11 @@
 #include "imgui/imgui_tables.cpp"
 #include "imgui/imgui_widgets.cpp"
 
-float f1 = 90.0f;
+float someV = 90.0f;
 float gammaValue = 1;
 
-void imGuiSetupWindow(VkExtent2D swapChainExtent) {
-  ImGuiIO &io = ImGui::GetIO();
+void imGuiSetupWindow(VkExtent2D swapChainExtent) 
+{
   // Start the Dear ImGui frame
   ImGui_ImplVulkan_NewFrame();
   ImGui_ImplGlfw_NewFrame();
@@ -23,7 +23,7 @@ void imGuiSetupWindow(VkExtent2D swapChainExtent) {
 
   // render your GUI
   ImGui::Begin("JohnMirTest");
-  ImGui::SliderFloat("Amount of perspective", &f1, 0.0f, 90.0f,
+  ImGui::SliderFloat("Amount of perspective", &someV, 0.0f, 90.0f,
                       "ratio = %.3f");
   ImGui::SliderFloat("gamma", &gammaValue, 0.0f, 4.0f, "%.2f");
   ImGui::ShowDemoWindow();
@@ -32,7 +32,7 @@ void imGuiSetupWindow(VkExtent2D swapChainExtent) {
   ImGui::Render();
 }
 
-void initImGui(VkInstance instance, VulkanContext &context, VkDescriptorPool &descriptorPool,
+void initImGui(VulkanContext &context, VkDescriptorPool &descriptorPool,
                VkRenderPass &renderPass, std::vector<VkImage> &swapChainImages,
                float width, float height) 
 {
@@ -48,7 +48,7 @@ void initImGui(VkInstance instance, VulkanContext &context, VkDescriptorPool &de
 
   ImGui_ImplGlfw_InitForVulkan(context.m_Window, true);
   ImGui_ImplVulkan_InitInfo init_info = {};
-  init_info.Instance = instance;
+  init_info.Instance = context.m_Instance;
   init_info.PhysicalDevice = context.m_PhysicalDevice;
   init_info.Device = context.m_Device;
   init_info.QueueFamily = context.m_QueueFamilyIndicesUsed.graphicsFamily.value();
@@ -66,13 +66,13 @@ void initImGui(VkInstance instance, VulkanContext &context, VkDescriptorPool &de
   ImGui::StyleColorsDark();
 }
 
-void recreateImguiContext(VkInstance instance, VulkanContext &context, VkDescriptorPool &descriptorPool,
+void recreateImguiContext(VulkanContext &context, VkDescriptorPool &descriptorPool,
                VkRenderPass &renderPass, std::vector<VkImage> &swapChainImages, VkExtent2D swapChainExtent) 
 {
   ImGui_ImplVulkan_Shutdown();
   ImGui_ImplGlfw_Shutdown();
   ImGui::DestroyContext();
-  initImGui(instance, context, descriptorPool, renderPass, swapChainImages,
+  initImGui(context, descriptorPool, renderPass, swapChainImages,
             float(swapChainExtent.width), float(swapChainExtent.height));
   imGuiSetupWindow(swapChainExtent);
 }

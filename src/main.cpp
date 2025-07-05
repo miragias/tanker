@@ -1,6 +1,7 @@
 #define IMGUI_DEFINE_MATH_OPERATORS
 #define GLFW_INCLUDE_VULKAN
 #define mut
+#include <Windows.h>
 #include <GLFW/glfw3.h>
 #include <optional>
 #include <vector>
@@ -21,9 +22,9 @@ struct QueueFamilyIndices
   }
 };
 
-VkInstance m_Instance;
 struct VulkanContext
 {
+  VkInstance m_Instance;
   GLFWwindow *m_Window;
   VkPhysicalDevice m_PhysicalDevice = VK_NULL_HANDLE;
   VkSurfaceKHR m_Surface;
@@ -84,9 +85,9 @@ static int g_SwapChainResizeHeight = 0;
 #define VMA_IMPLEMENTATION
 
 #pragma warning(push)
-#pragma warning(disable : 4100) // unreferenced formal parameter
-#pragma warning(disable : 4324) // structure padded due to alignment
-
+#pragma warning(disable : 4100)
+#pragma warning(disable : 4324)
+#pragma warning(disable:4189)
 #include "vk_mem_alloc.h"
 
 #pragma warning(pop)
@@ -360,10 +361,10 @@ VkInstance createInstance()
   */
 }
 
-VkSurfaceKHR createSurface(GLFWwindow* window) 
+VkSurfaceKHR createSurface(GLFWwindow* window, VkInstance instance) 
 {
   VkSurfaceKHR surface;
-  if (glfwCreateWindowSurface(m_Instance, window, nullptr, &surface) != VK_SUCCESS) 
+  if (glfwCreateWindowSurface(instance, window, nullptr, &surface) != VK_SUCCESS) 
   {
     throw std::runtime_error("failed to create window surface!");
   }
@@ -382,7 +383,7 @@ debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
   return VK_FALSE;
 }
 
-VkDebugUtilsMessengerEXT setupDebugCallback() 
+VkDebugUtilsMessengerEXT setupDebugCallback(VkInstance instance) 
 {
   if (!enableValidationLayers) return nullptr;
 
@@ -398,7 +399,7 @@ VkDebugUtilsMessengerEXT setupDebugCallback()
   createInfo.pfnUserCallback = debugCallback;
 
   VkDebugUtilsMessengerEXT callBack;
-  if (CreateDebugUtilsMessengerEXT(m_Instance, &createInfo, nullptr,
+  if (CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr,
                                     &callBack) != VK_SUCCESS) {
     throw std::runtime_error("failed to set up debug callback!");
   }
@@ -528,7 +529,7 @@ VkPhysicalDevice pickPhysicalDevice(VkInstance instance,
   std::vector<VkPhysicalDevice> devices(deviceCount);
   vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
 
-  VkPhysicalDevice physicalDevice;
+  VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
 
   for (const auto &device : devices) 
   {
@@ -1637,7 +1638,6 @@ void createIndexBuffer() {
   VkDeviceSize bufferSize = 1000000000;
 
   VkBuffer stagingBuffer;
-  VkDeviceMemory stagingBufferMemory;
 
   VkBufferCreateInfo stagingBufferInfo = {
       VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
@@ -1786,7 +1786,7 @@ void ProcessSimulation() {
       glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f),
                   glm::vec3(0.0f, 0.0f, 1.0f));
   ubo.proj = glm::perspective(
-      glm::radians(f1),
+      glm::radians(someV),
       m_SwapChainExtent.width / (float)m_SwapChainExtent.height, 0.1f, 10.0f);
   ubo.proj[1][1] *= -1;
   ubo.gamma = 1 / gammaValue;
@@ -1833,11 +1833,11 @@ void cleanup()
   vkDestroyDevice(VContext.m_Device, nullptr);
 
   if (enableValidationLayers) {
-    DestroyDebugUtilsMessengerEXT(m_Instance, VContext.m_Callback, nullptr);
+    DestroyDebugUtilsMessengerEXT(VContext.m_Instance, VContext.m_Callback, nullptr);
   }
 
-  vkDestroySurfaceKHR(m_Instance, VContext.m_Surface, nullptr);
-  vkDestroyInstance(m_Instance, nullptr);
+  vkDestroySurfaceKHR(VContext.m_Instance, VContext.m_Surface, nullptr);
+  vkDestroyInstance(VContext.m_Instance, nullptr);
 
   glfwDestroyWindow(VContext.m_Window);
   glfwTerminate();
@@ -1861,7 +1861,7 @@ void recreateSwapChain() {
   createUniformBuffers();
   createDescriptorPool();
   createDescriptorSets();
-  recreateImguiContext(m_Instance, VContext, m_DescriptorPool, m_RenderPass, m_SwapChainImages, m_SwapChainExtent);
+  recreateImguiContext(VContext, m_DescriptorPool, m_RenderPass, m_SwapChainImages, m_SwapChainExtent);
   createCommandBuffers();
 }
 
@@ -1940,14 +1940,14 @@ void drawFrame() {
 
 void initVulkan(GLFWwindow* window) 
 {
-  m_Instance = createInstance();
 
   // Basic init
   VContext = {};
   VContext.m_Window = window;
-  VContext.m_Callback = setupDebugCallback();
-  VContext.m_Surface = createSurface(window);
-  VContext.m_PhysicalDevice = pickPhysicalDevice(m_Instance,
+  VContext.m_Instance = createInstance();
+  VContext.m_Callback = setupDebugCallback(VContext.m_Instance);
+  VContext.m_Surface = createSurface(window, VContext.m_Instance);
+  VContext.m_PhysicalDevice = pickPhysicalDevice(VContext.m_Instance,
                                                  &VContext.m_QueueFamilyIndicesUsed,
                                                         VContext.m_Surface);
   VContext.m_Device = createLogicalDevice(VContext.m_PhysicalDevice,
@@ -1961,7 +1961,7 @@ void initVulkan(GLFWwindow* window)
   VmaAllocatorCreateInfo allocatorInfo = {};
   allocatorInfo.physicalDevice = VContext.m_PhysicalDevice; // Your VkPhysicalDevice
   allocatorInfo.device = VContext.m_Device;                 // Your VkDevice
-  allocatorInfo.instance = m_Instance;             // Your VkInstance
+  allocatorInfo.instance = VContext.m_Instance;             // Your VkInstance
 
   if (vmaCreateAllocator(&allocatorInfo, &m_Allocator) != VK_SUCCESS) {
     throw std::runtime_error("failed to create VMA allocator!");
@@ -1995,7 +1995,7 @@ void initVulkan(GLFWwindow* window)
   createCommandBuffers();
   createSyncObjects();
 
-  initImGui(m_Instance, VContext, m_DescriptorPool, m_RenderPass, m_SwapChainImages,
+  initImGui(VContext, m_DescriptorPool, m_RenderPass, m_SwapChainImages,
             float(m_SwapChainExtent.width), float(m_SwapChainExtent.height));
 }
 
