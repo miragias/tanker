@@ -189,7 +189,7 @@ struct UniformBufferObject {
   float gamma;
 };
 
-struct MainContext
+struct VulkanContext
 {
 };
 
@@ -2042,10 +2042,10 @@ void mainLoop()
   ImGui::DestroyContext();
 }
 
-
 void run() 
 {
-  initWindow(m_Window, WIDTH, HEIGHT);
+  //
+  initWindow(&m_Window, WIDTH, HEIGHT);
   initVulkan();
   mainLoop();
   cleanup();
