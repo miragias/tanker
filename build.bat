@@ -39,7 +39,7 @@ set Libs=vulkan-1.lib glfw3.lib gdi32.lib user32.lib kernel32.lib opengl32.lib
 set CFlags=/nologo /EHsc /MP /Zi /MDd /W4 /std:c++17 %IncludeDirs%
 
 :: Linker flags
-set LFlags=/SUBSYSTEM:console %LibDirs% %Libs%
+set LFlags=/SUBSYSTEM:console /DEBUG %LibDirs% %Libs%
 
 :: Track if any file was recompiled
 set Recompiled=0
