@@ -1,5 +1,6 @@
 #define IMGUI_DEFINE_MATH_OPERATORS
 #define GLFW_INCLUDE_VULKAN
+#define mut
 #include <GLFW/glfw3.h>
 
 #include "imgui/imgui.cpp"
@@ -9,6 +10,13 @@
 #include "imgui/imgui_draw.cpp"
 #include "imgui/imgui_tables.cpp"
 #include "imgui/imgui_widgets.cpp"
+
+int WIDTH = 2000;
+int HEIGHT = 1000;
+
+//Globals
+bool g_FrameBufferResized = false;
+#include "Rendering/NativeWindow.cpp"
 
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "Other/tiny_obj_loader.h"
@@ -67,8 +75,6 @@ static int g_SwapChainResizeHeight = 0;
 #pragma warning(pop)
 
 typedef uint32_t uint32;
-int WIDTH = 2000;
-int HEIGHT = 1000;
 
 // NOTE(JohnMir): Make sure the SDK bin folder (with the layers json is set to
 // the variable $VK_LAYER_PATH
@@ -183,6 +189,10 @@ struct UniformBufferObject {
   float gamma;
 };
 
+struct MainContext
+{
+};
+
 float gammaValue = 1;
 const int NUMBER_OF_IMAGES = 2;
 
@@ -258,28 +268,6 @@ std::vector<VkFence> m_ImagesInFlight;
 VmaAllocator m_Allocator;
 
 size_t m_CurrentFrame = 0;
-bool m_FrameBufferResized = false;
-
-static void framebufferResizeCallback(GLFWwindow *window, int width,
-                                      int height) {
-  m_FrameBufferResized = true;
-}
-
-void initWindow() 
-{
-  glfwInit();
-  glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-  glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-  m_Window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
-  glfwSetWindowUserPointer(m_Window, nullptr);
-  glfwSetFramebufferSizeCallback(m_Window, framebufferResizeCallback);
-}
-
-static void glfw_resize_callback(GLFWwindow *, int w, int h) {
-  g_SwapChainRebuild = true;
-  g_SwapChainResizeWidth = w;
-  g_SwapChainResizeHeight = h;
-}
 
 float f1 = 90.0f;
 
@@ -1977,8 +1965,8 @@ void drawFrame() {
   result = vkQueuePresentKHR(m_PresentQueue, &presentInfo);
 
   if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR ||
-      m_FrameBufferResized) {
-    m_FrameBufferResized = false;
+      g_FrameBufferResized) {
+    g_FrameBufferResized = false;
     recreateSwapChain();
   } else if (result != VK_SUCCESS) {
     throw std::runtime_error("failed to present swap chain image!");
@@ -2057,7 +2045,7 @@ void mainLoop()
 
 void run() 
 {
-  initWindow();
+  initWindow(m_Window, WIDTH, HEIGHT);
   initVulkan();
   mainLoop();
   cleanup();
