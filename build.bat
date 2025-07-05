@@ -1,5 +1,5 @@
 @echo off
-setlocal
+setlocal EnableDelayedExpansion
 
 :: Output folder for objs and exe
 set BuildDir=build
@@ -35,27 +35,54 @@ set LibDirs=/LIBPATH:"C:\Lib\lib-vc2019" ^
 :: Libraries to link
 set Libs=vulkan-1.lib glfw3.lib gdi32.lib user32.lib kernel32.lib opengl32.lib
 
-:: Compiler flags (compile only)
+:: Compiler flags
 set CFlags=/nologo /EHsc /MP /Zi /MDd /W4 /std:c++17 %IncludeDirs%
 
 :: Linker flags
 set LFlags=/SUBSYSTEM:console %LibDirs% %Libs%
 
-:: Clean previous build files
-if exist %BuildDir%\*.obj del %BuildDir%\*.obj
-if exist %BuildDir%\tanker.exe del %BuildDir%\tanker.exe
+:: Track if any file was recompiled
+set Recompiled=0
 
-:: Compile each source file separately
+:: Compile each source file only if needed
 for %%f in (%SourceFiles%) do (
-    echo Compiling %%~nxf
-    %Compiler% /c %CFlags% /Fo%BuildDir%\%%~nf.obj "%%f"
-    if errorlevel 1 goto BuildFailed
+    set "Src=%%f"
+    set "Obj=%BuildDir%\%%~nf.obj"
+
+    if not exist "!Obj!" (
+        REM echo Compiling !Src! (new)
+        %Compiler% /c %CFlags% /Fo"!Obj!" "!Src!"
+        if errorlevel 1 goto BuildFailed
+        set Recompiled=1
+    ) else (
+        for %%A in ("!Src!") do set "SrcTime=%%~tA"
+        for %%B in ("!Obj!") do set "ObjTime=%%~tB"
+
+        if "!SrcTime!" GTR "!ObjTime!" (
+            REM echo Compiling !Src! (updated)
+            %Compiler% /c %CFlags% /Fo"!Obj!" "!Src!"
+            if errorlevel 1 goto BuildFailed
+            set Recompiled=1
+        ) else (
+            REM echo Skipping !Src! (up-to-date)
+        )
+    )
 )
 
-:: Link all object files
-echo Linking...
-%Linker% %LFlags% %BuildDir%\*.obj /OUT:%BuildDir%\tanker.exe
-if errorlevel 1 goto BuildFailed
+:: Link only if needed or if exe is missing
+if "%Recompiled%"=="1" (
+    echo Linking...
+    %Linker% %LFlags% %BuildDir%\*.obj /OUT:%BuildDir%\tanker.exe
+    if errorlevel 1 goto BuildFailed
+) else (
+    if not exist %BuildDir%\tanker.exe (
+        echo No recompilation, but EXE missing. Linking...
+        %Linker% %LFlags% %BuildDir%\*.obj /OUT:%BuildDir%\tanker.exe
+        if errorlevel 1 goto BuildFailed
+    ) else (
+        echo No changes detected. Build skipped.
+    )
+)
 
 echo.
 echo Build succeeded! Output is %BuildDir%\tanker.exe
@@ -70,6 +97,8 @@ goto BuildEnd
 echo.
 echo Build failed!
 pause
+goto BuildEnd
 
 :BuildEnd
 endlocal
+
