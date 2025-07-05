@@ -50,7 +50,14 @@ static int g_SwapChainResizeHeight = 0;
 
 #include <chrono>
 #define VMA_IMPLEMENTATION
+
+#pragma warning(push)
+#pragma warning(disable : 4100) // unreferenced formal parameter
+#pragma warning(disable : 4324) // structure padded due to alignment
+
 #include "vk_mem_alloc.h"
+
+#pragma warning(pop)
 
 typedef uint32_t uint32;
 int WIDTH = 2000;

@@ -36,7 +36,7 @@ set LibDirs=/LIBPATH:"C:\Lib\lib-vc2019" ^
 set Libs=vulkan-1.lib glfw3.lib gdi32.lib user32.lib kernel32.lib opengl32.lib
 
 :: Compiler flags
-set CFlags=/nologo /EHsc /MP /Zi /MDd /W4 /std:c++17 %IncludeDirs%
+set CFlags=/nologo /EHsc /MP /Zi /MDd /W4 /std:c++17 /wd4100 %IncludeDirs%
 
 :: Linker flags
 set LFlags=/SUBSYSTEM:console /DEBUG %LibDirs% %Libs%
@@ -49,17 +49,18 @@ for %%f in (%SourceFiles%) do (
     set "Src=%%f"
     set "Obj=%BuildDir%\%%~nf.obj"
 
-    if not exist "!Obj!" (
-        REM echo Compiling !Src! (new)
+    REM Get full paths for robocopy to work correctly
+    for %%A in ("!Src!") do set "FullSrc=%%~fA"
+    for %%B in ("!Obj!") do set "FullObj=%%~fB"
+
+    if not exist "!FullObj!" (
         %Compiler% /c %CFlags% /Fo"!Obj!" "!Src!"
         if errorlevel 1 goto BuildFailed
         set Recompiled=1
     ) else (
-        for %%A in ("!Src!") do set "SrcTime=%%~tA"
-        for %%B in ("!Obj!") do set "ObjTime=%%~tB"
-
-        if "!SrcTime!" GTR "!ObjTime!" (
-            REM echo Compiling !Src! (updated)
+        for %%A in ("!FullSrc!") do set "TimeSrc=%%~tA"
+        for %%B in ("!FullObj!") do set "TimeObj=%%~tB"
+        if "!TimeSrc!" GTR "!TimeObj!" (
             %Compiler% /c %CFlags% /Fo"!Obj!" "!Src!"
             if errorlevel 1 goto BuildFailed
             set Recompiled=1
@@ -84,11 +85,10 @@ if "%Recompiled%"=="1" (
     )
 )
 
-echo.
-echo Build succeeded! Output is %BuildDir%\tanker.exe
+REM echo.
+REM echo Build succeeded! Output is %BuildDir%\tanker.exe
 
 :: Run the executable
-echo Running the program...
 %BuildDir%\tanker.exe
 
 goto BuildEnd
@@ -101,4 +101,3 @@ goto BuildEnd
 
 :BuildEnd
 endlocal
-
