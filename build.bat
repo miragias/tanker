@@ -1,6 +1,12 @@
 @echo off
 setlocal
 
+:: Define build output directory
+set BuildDir=build
+
+:: Create build directory if it doesn't exist
+if not exist %BuildDir% mkdir %BuildDir%
+
 :: Compiler and linker setup
 set Compiler=cl
 set Linker=link
@@ -15,8 +21,8 @@ set Source=src\main.cpp ^
     C:\Users\ioann\Programming\tanker\src\imgui\backends\imgui_impl_glfw.cpp ^
     C:\Users\ioann\Programming\tanker\src\imgui\backends\imgui_impl_vulkan.cpp
 
-:: Output binary name
-set Output=tanker.exe
+:: Output binary name (inside build folder)
+set Output=%BuildDir%\tanker.exe
 
 :: Include directories
 set IncludeDirs=/I"C:\Lib\stb" ^
@@ -34,16 +40,16 @@ set LibDirs=/LIBPATH:"C:\Lib\lib-vc2019" ^
 :: Libraries to link
 set Libs=vulkan-1.lib glfw3.lib gdi32.lib user32.lib kernel32.lib opengl32.lib
 
-:: Compiler flags
-set CFlags=/nologo /EHsc /Zi /MDd /W4 /std:c++17 %IncludeDirs%
+:: Compiler flags with /Fo to specify .obj output directory
+set CFlags=/nologo /EHsc /Zi /MDd /W4 /std:c++17 %IncludeDirs% /Fo%BuildDir%\
 
 :: Linker flags
 set LFlags=/SUBSYSTEM:console %LibDirs% %Libs%
 
 :: Clean old output
 if exist %Output% del %Output%
-if exist main.obj del main.obj
-if exist main.pdb del main.pdb
+del /Q %BuildDir%\*.obj >nul 2>&1
+del /Q %BuildDir%\*.pdb >nul 2>&1
 
 :: Build
 %Compiler% %CFlags% %Source% /link %LFlags% /OUT:%Output%
