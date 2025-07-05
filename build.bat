@@ -10,14 +10,7 @@ set Compiler=cl
 set Linker=link
 
 :: Source files list
-set SourceFiles=src\main.cpp ^
-    C:\Users\ioann\Programming\tanker\src\imgui\imgui.cpp ^
-    C:\Users\ioann\Programming\tanker\src\imgui\imgui_draw.cpp ^
-    C:\Users\ioann\Programming\tanker\src\imgui\imgui_widgets.cpp ^
-    C:\Users\ioann\Programming\tanker\src\imgui\imgui_tables.cpp ^
-    C:\Users\ioann\Programming\tanker\src\imgui\imgui_demo.cpp ^
-    C:\Users\ioann\Programming\tanker\src\imgui\backends\imgui_impl_glfw.cpp ^
-    C:\Users\ioann\Programming\tanker\src\imgui\backends\imgui_impl_vulkan.cpp
+set SourceFiles=src\main.cpp
 
 :: Include directories
 set IncludeDirs=/I"C:\Lib\stb" ^

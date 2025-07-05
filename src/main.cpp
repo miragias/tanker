@@ -1,11 +1,18 @@
-#include "imgui/backends/imgui_impl_glfw.h"
-#include "imgui/backends/imgui_impl_vulkan.h"
-#include "imgui/imgui.h"
+#define IMGUI_DEFINE_MATH_OPERATORS
+#define GLFW_INCLUDE_VULKAN
+#include <GLFW/glfw3.h>
+
+#include "imgui/backends/imgui_impl_glfw.cpp"
+#include "imgui/backends/imgui_impl_vulkan.cpp"
+#include "imgui/imgui.cpp"
+#include "imgui/imgui_demo.cpp"
+#include "imgui/imgui_draw.cpp"
+#include "imgui/imgui_tables.cpp"
+#include "imgui/imgui_widgets.cpp"
+
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "Other/tiny_obj_loader.h"
 
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
 // [Win32] Our example includes a copy of glfw3.lib pre-compiled with VS2010 to
 // maximize ease of testing and compatibility with old VS compilers. To link
 // with VS2010-era libraries, VS2015+ requires linking with
