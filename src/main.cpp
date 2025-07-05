@@ -6,59 +6,8 @@
 #include <optional>
 #include <vector>
 
-//Globals
-int WIDTH = 2000;
-int HEIGHT = 1000;
-bool g_FrameBufferResized = false;
-
-struct QueueFamilyIndices 
-{
-  std::optional<uint32_t> graphicsFamily;
-  std::optional<uint32_t> presentFamily;
-
-  bool isComplete() 
-  {
-    return graphicsFamily.has_value() && presentFamily.has_value();
-  }
-};
-
-struct VulkanContext
-{
-  VkInstance m_Instance;
-  GLFWwindow *m_Window;
-  VkPhysicalDevice m_PhysicalDevice = VK_NULL_HANDLE;
-  VkSurfaceKHR m_Surface;
-  VkDevice m_Device;
-  QueueFamilyIndices m_QueueFamilyIndicesUsed;
-  VkDebugUtilsMessengerEXT m_Callback;
-  VkQueue m_GraphicsQueue;
-  VkQueue m_PresentQueue;
-};
-
-#include "ImguiOverlay.cpp"
-#include "Rendering/NativeWindow.cpp"
-
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "Other/tiny_obj_loader.h"
-
-// [Win32] Our example includes a copy of glfw3.lib pre-compiled with VS2010 to
-// maximize ease of testing and compatibility with old VS compilers. To link
-// with VS2010-era libraries, VS2015+ requires linking with
-// legacy_stdio_definitions.lib, which we do using this pragma. Your own project
-// should not be affected, as you are likely to link with a newer binary of GLFW
-// that is adequate for your version of Visual Studio.
-#if defined(_MSC_VER) && (_MSC_VER >= 1900) &&                                 \
-    !defined(IMGUI_DISABLE_WIN32_FUNCTIONS)
-#pragma comment(lib, "legacy_stdio_definitions")
-#endif
-
-#ifdef _DEBUG
-#define IMGUI_VULKAN_DEBUG_REPORT
-#endif
-
-static bool g_SwapChainRebuild = false;
-static int g_SwapChainResizeWidth = 0;
-static int g_SwapChainResizeHeight = 0;
 
 #include <algorithm>
 #include <cstdlib>
@@ -82,44 +31,27 @@ static int g_SwapChainResizeHeight = 0;
 #include "Other/stb_image.h"
 
 #include <chrono>
-#define VMA_IMPLEMENTATION
 
+#define VMA_IMPLEMENTATION
 #pragma warning(push)
 #pragma warning(disable : 4100)
 #pragma warning(disable : 4324)
 #pragma warning(disable:4189)
+#pragma warning(disable: 4127)
 #include "vk_mem_alloc.h"
-
 #pragma warning(pop)
 
 typedef uint32_t uint32;
 
 // NOTE(JohnMir): Make sure the SDK bin folder (with the layers json is set to
 // the variable $VK_LAYER_PATH
-const std::vector<const char *> validationLayers = {
-    "VK_LAYER_KHRONOS_validation"};
-const std::vector<const char *> deviceExtensions = {
-    VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+const std::vector<const char *> validationLayers = {"VK_LAYER_KHRONOS_validation"};
+const std::vector<const char *> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 
-#ifdef NDEBUG
-const bool enableValidationLayers = false;
-#else
-const bool enableValidationLayers = true;
-#endif
-
-VkResult CreateDebugUtilsMessengerEXT(
-    VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo,
-    const VkAllocationCallbacks *pAllocator,
-    VkDebugUtilsMessengerEXT *pCallback) {
-  auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(
-      instance, "vkCreateDebugUtilsMessengerEXT");
-  if (func != nullptr) {
-    return func(instance, pCreateInfo, pAllocator, pCallback);
-  } else {
-    return VK_ERROR_EXTENSION_NOT_PRESENT;
-  }
-}
-
+#include "Globals.cpp"
+#include "Rendering/VulkanSetup.cpp"
+#include "ImguiOverlay.cpp"
+#include "Rendering/NativeWindow.cpp"
 ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
 void DestroyDebugUtilsMessengerEXT(VkInstance instance,
@@ -132,18 +64,21 @@ void DestroyDebugUtilsMessengerEXT(VkInstance instance,
   }
 }
 
-struct SwapChainSupportDetails {
+struct SwapChainSupportDetails 
+{
   VkSurfaceCapabilitiesKHR capabilities;
   std::vector<VkSurfaceFormatKHR> formats;
   std::vector<VkPresentModeKHR> presentModes;
 };
 
-struct Vertex {
+struct Vertex 
+{
   glm::vec3 pos;
   glm::vec3 color;
   glm::vec2 texCoord;
 
-  static VkVertexInputBindingDescription getBindingDescription() {
+  static VkVertexInputBindingDescription getBindingDescription() 
+  {
     VkVertexInputBindingDescription bindingDescription = {};
     bindingDescription.binding = 0;
     bindingDescription.stride = sizeof(Vertex);
@@ -152,7 +87,8 @@ struct Vertex {
     return bindingDescription;
   }
 
-  bool operator==(const Vertex &other) const {
+  bool operator==(const Vertex &other) const 
+  {
     return pos == other.pos && color == other.color &&
            texCoord == other.texCoord;
   }
@@ -180,7 +116,8 @@ struct Vertex {
   }
 };
 
-namespace std {
+namespace std 
+{
 template <> struct hash<Vertex> {
   size_t operator()(Vertex const &vertex) const {
     return ((hash<glm::vec3>()(vertex.pos) ^
@@ -191,7 +128,8 @@ template <> struct hash<Vertex> {
 };
 } // namespace std
 
-struct UniformBufferObject {
+struct UniformBufferObject 
+{
   glm::mat4 model;
   glm::mat4 view;
   glm::mat4 proj;
@@ -208,7 +146,6 @@ std::vector<Vertex> m_ModelVertexes;
 std::vector<uint32_t> m_VertexIndices;
 std::vector<Vertex> m_Model2Vertexes;
 std::vector<uint32_t> m_Vertex2Indices;
-
 
 VulkanContext VContext;
 
@@ -266,101 +203,6 @@ VmaAllocator m_Allocator;
 
 size_t m_CurrentFrame = 0;
 
-bool checkValidationLayerSupport() {
-
-  uint32 layerCount;
-  vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
-
-  std::vector<VkLayerProperties> availableLayers(layerCount);
-  vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
-
-  for (const char *layerName : validationLayers) {
-    bool layerFound = false;
-
-    for (const auto &layerProperties : availableLayers) {
-      if (strcmp(layerName, layerProperties.layerName) == 0) {
-        layerFound = true;
-        break;
-      }
-    }
-    if (!layerFound) {
-      return false;
-    }
-  }
-  return true;
-}
-
-std::vector<const char *> getRequiredExtensions() {
-  uint32 glfwExtensionCount = 0;
-  const char **glfwExtensions;
-  glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
-
-  std::vector<const char *> extensions(glfwExtensions,
-                                        glfwExtensions + glfwExtensionCount);
-
-  if (enableValidationLayers) {
-    extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-  }
-
-  return extensions;
-}
-
-
-VkInstance createInstance() 
-{
-  if (enableValidationLayers && !checkValidationLayerSupport()) 
-  {
-    throw std::runtime_error(
-        "validation layers requested, but not available!");
-  }
-
-  VkApplicationInfo appInfo = {};
-  appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-  appInfo.pApplicationName = "Tanker";
-  appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-  appInfo.pEngineName = "No Engine";
-  appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-  appInfo.apiVersion = VK_API_VERSION_1_0;
-
-  VkInstanceCreateInfo createInfo = {};
-  createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-  createInfo.pApplicationInfo = &appInfo;
-
-  auto instanceInfoExtensions = getRequiredExtensions();
-  createInfo.enabledExtensionCount =
-      static_cast<uint32>(instanceInfoExtensions.size());
-  createInfo.ppEnabledExtensionNames = instanceInfoExtensions.data();
-
-  if (enableValidationLayers) 
-  {
-    createInfo.enabledLayerCount =
-        static_cast<uint32>(validationLayers.size());
-    createInfo.ppEnabledLayerNames = validationLayers.data();
-  }
-  else 
-  {
-    createInfo.enabledLayerCount = 0;
-  }
-
-  VkInstance instanceToReturn;
-  if (vkCreateInstance(&createInfo, nullptr, &instanceToReturn) != VK_SUCCESS) {
-    throw std::runtime_error("failed to create instance!");
-  }
-
-  uint32 extensionCount = 0;
-  vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
-  std::vector<VkExtensionProperties> extensions(extensionCount);
-  vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount,
-                                          extensions.data());
-  return instanceToReturn;
-  /*
-  std::cout << "available extension:" << std::endl;
-  for (const auto& extension : extensions) {
-          std::cout << "\t" << extension.extensionName << std::endl;
-  }
-  */
-}
-
 VkSurfaceKHR createSurface(GLFWwindow* window, VkInstance instance) 
 {
   VkSurfaceKHR surface;
@@ -370,42 +212,6 @@ VkSurfaceKHR createSurface(GLFWwindow* window, VkInstance instance)
   }
   return surface;
 }
-
-
-static VKAPI_ATTR VkBool32 VKAPI_CALL
-debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-              VkDebugUtilsMessageTypeFlagsEXT messageType,
-              const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
-              void *pUserData) 
-{
-  std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
-
-  return VK_FALSE;
-}
-
-VkDebugUtilsMessengerEXT setupDebugCallback(VkInstance instance) 
-{
-  if (!enableValidationLayers) return nullptr;
-
-  VkDebugUtilsMessengerCreateInfoEXT createInfo = {};
-  createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-  createInfo.messageSeverity =
-      VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
-      VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
-      VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-  createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
-                            VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
-                            VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-  createInfo.pfnUserCallback = debugCallback;
-
-  VkDebugUtilsMessengerEXT callBack;
-  if (CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr,
-                                    &callBack) != VK_SUCCESS) {
-    throw std::runtime_error("failed to set up debug callback!");
-  }
-  return callBack;
-}
-
 
 
 QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface) 
@@ -1957,6 +1763,10 @@ void initVulkan(GLFWwindow* window)
                     0, &VContext.m_GraphicsQueue);
   vkGetDeviceQueue(VContext.m_Device, VContext.m_QueueFamilyIndicesUsed.presentFamily.value(),
                     0, &VContext.m_PresentQueue);
+
+
+
+  //
 
   VmaAllocatorCreateInfo allocatorInfo = {};
   allocatorInfo.physicalDevice = VContext.m_PhysicalDevice; // Your VkPhysicalDevice
