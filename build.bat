@@ -1,18 +1,16 @@
 @echo off
 setlocal
 
-:: Define build output directory
+:: Output folder for objs and exe
 set BuildDir=build
-
-:: Create build directory if it doesn't exist
 if not exist %BuildDir% mkdir %BuildDir%
 
-:: Compiler and linker setup
+:: Compiler and linker
 set Compiler=cl
 set Linker=link
 
-:: Source files (your main + imgui sources)
-set Source=src\main.cpp ^
+:: Source files list
+set SourceFiles=src\main.cpp ^
     C:\Users\ioann\Programming\tanker\src\imgui\imgui.cpp ^
     C:\Users\ioann\Programming\tanker\src\imgui\imgui_draw.cpp ^
     C:\Users\ioann\Programming\tanker\src\imgui\imgui_widgets.cpp ^
@@ -20,9 +18,6 @@ set Source=src\main.cpp ^
     C:\Users\ioann\Programming\tanker\src\imgui\imgui_demo.cpp ^
     C:\Users\ioann\Programming\tanker\src\imgui\backends\imgui_impl_glfw.cpp ^
     C:\Users\ioann\Programming\tanker\src\imgui\backends\imgui_impl_vulkan.cpp
-
-:: Output binary name (inside build folder)
-set Output=%BuildDir%\tanker.exe
 
 :: Include directories
 set IncludeDirs=/I"C:\Lib\stb" ^
@@ -40,23 +35,41 @@ set LibDirs=/LIBPATH:"C:\Lib\lib-vc2019" ^
 :: Libraries to link
 set Libs=vulkan-1.lib glfw3.lib gdi32.lib user32.lib kernel32.lib opengl32.lib
 
-:: Compiler flags with /Fo to specify .obj output directory
-set CFlags=/nologo /EHsc /Zi /MDd /W4 /std:c++17 %IncludeDirs% /Fo%BuildDir%\
+:: Compiler flags (compile only)
+set CFlags=/nologo /EHsc /MP /Zi /MDd /W4 /std:c++17 %IncludeDirs%
 
 :: Linker flags
 set LFlags=/SUBSYSTEM:console %LibDirs% %Libs%
 
-:: Clean old output
-if exist %Output% del %Output%
-del /Q %BuildDir%\*.obj >nul 2>&1
-del /Q %BuildDir%\*.pdb >nul 2>&1
+:: Clean previous build files
+if exist %BuildDir%\*.obj del %BuildDir%\*.obj
+if exist %BuildDir%\tanker.exe del %BuildDir%\tanker.exe
 
-:: Build
-%Compiler% %CFlags% %Source% /link %LFlags% /OUT:%Output%
+:: Compile each source file separately
+for %%f in (%SourceFiles%) do (
+    echo Compiling %%~nxf
+    %Compiler% /c %CFlags% /Fo%BuildDir%\%%~nf.obj "%%f"
+    if errorlevel 1 goto BuildFailed
+)
 
-:: Pause to see output
+:: Link all object files
+echo Linking...
+%Linker% %LFlags% %BuildDir%\*.obj /OUT:%BuildDir%\tanker.exe
+if errorlevel 1 goto BuildFailed
+
 echo.
-echo Build finished with error level %ERRORLEVEL%
+echo Build succeeded! Output is %BuildDir%\tanker.exe
+
+:: Run the executable
+echo Running the program...
+%BuildDir%\tanker.exe
+
+goto BuildEnd
+
+:BuildFailed
+echo.
+echo Build failed!
 pause
 
+:BuildEnd
 endlocal
