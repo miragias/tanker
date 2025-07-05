@@ -1940,24 +1940,23 @@ void drawFrame() {
 
 void initVulkan(GLFWwindow* window) 
 {
-  // Basic init
-  VulkanContext contextToCreate = {};
   m_Instance = createInstance();
-  contextToCreate.m_Window = window;
-  contextToCreate.m_Callback = setupDebugCallback();
-  contextToCreate.m_Surface = createSurface(window);
-  contextToCreate.m_PhysicalDevice = pickPhysicalDevice(m_Instance,
-                                                 &contextToCreate.m_QueueFamilyIndicesUsed,
-                                                        contextToCreate.m_Surface);
-  contextToCreate.m_Device = createLogicalDevice(contextToCreate.m_PhysicalDevice,
-                                          contextToCreate.m_QueueFamilyIndicesUsed);
 
-  vkGetDeviceQueue(contextToCreate.m_Device, contextToCreate.m_QueueFamilyIndicesUsed.graphicsFamily.value(),
-                    0, &contextToCreate.m_GraphicsQueue);
-  vkGetDeviceQueue(contextToCreate.m_Device, contextToCreate.m_QueueFamilyIndicesUsed.presentFamily.value(),
-                    0, &contextToCreate.m_PresentQueue);
+  // Basic init
+  VContext = {};
+  VContext.m_Window = window;
+  VContext.m_Callback = setupDebugCallback();
+  VContext.m_Surface = createSurface(window);
+  VContext.m_PhysicalDevice = pickPhysicalDevice(m_Instance,
+                                                 &VContext.m_QueueFamilyIndicesUsed,
+                                                        VContext.m_Surface);
+  VContext.m_Device = createLogicalDevice(VContext.m_PhysicalDevice,
+                                          VContext.m_QueueFamilyIndicesUsed);
 
-  VContext = contextToCreate;
+  vkGetDeviceQueue(VContext.m_Device, VContext.m_QueueFamilyIndicesUsed.graphicsFamily.value(),
+                    0, &VContext.m_GraphicsQueue);
+  vkGetDeviceQueue(VContext.m_Device, VContext.m_QueueFamilyIndicesUsed.presentFamily.value(),
+                    0, &VContext.m_PresentQueue);
 
   VmaAllocatorCreateInfo allocatorInfo = {};
   allocatorInfo.physicalDevice = VContext.m_PhysicalDevice; // Your VkPhysicalDevice
@@ -2021,6 +2020,7 @@ void run()
   GLFWwindow* window;
   initWindow(&window, WIDTH, HEIGHT);
   initVulkan(window);
+
   mainLoop();
   cleanup();
 }
