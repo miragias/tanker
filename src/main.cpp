@@ -700,18 +700,17 @@ void createFramebuffers() {
   }
 }
 
-void createCommandPool() 
+void createCommandPool(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface, VkDevice device) 
 {
-  QueueFamilyIndices queueFamilyIndices = findQueueFamilies(VContext.m_PhysicalDevice, VContext.m_Surface);
-
+  QueueFamilyIndices queueFamilyIndices = findQueueFamilies(physicalDevice, surface);
   VkCommandPoolCreateInfo poolInfo = {};
   poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
   // Is this really needed?
   poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
   poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
 
-  if (vkCreateCommandPool(VContext.m_Device, &poolInfo, nullptr, &m_CommandPool) !=
-      VK_SUCCESS) {
+  if (vkCreateCommandPool(device, &poolInfo, nullptr, &m_CommandPool) != VK_SUCCESS) 
+  {
     throw std::runtime_error("failed to create command pool!");
   }
 }
@@ -1574,28 +1573,43 @@ void initVulkan(GLFWwindow* window)
 
   // Create swap chain with image views
   createDescriptorSetLayout();
-  createSwapChain();
-  createImageViews();
-  createRenderPass();
-  createGraphicsPipeline();
-  createCommandPool();
-  createDepthResources();
-  createFramebuffers();
+  createCommandPool(VContext.m_PhysicalDevice, VContext.m_Surface, VContext.m_Device);
 
   createTextureImage();
   createTextureImageView();
   createTextureSampler();
+
+  createSwapChain();
+  createImageViews();
+  createRenderPass();
+  createGraphicsPipeline();
+  createDepthResources();
+  createFramebuffers();
+
+  /*
+  createSwapChain();
+  createImageViews();
+  createRenderPass();
+  createGraphicsPipeline();
+  createFramebuffers();
+
+  createUniformBuffers();
+  createDescriptorPool();
+  createDescriptorSets();
+  createCommandBuffers();
+  */
 
   loadModel(false);
   loadModel(true);
 
   CreateVertexBuffers();
   createIndexBuffer();
+
   createUniformBuffers();
   createDescriptorPool();
   createDescriptorSets();
-
   createCommandBuffers();
+
   createSyncObjects();
 
   initImGui(VContext, m_DescriptorPool, m_RenderPass, m_SwapChainImages,
