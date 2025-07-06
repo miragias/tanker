@@ -1172,7 +1172,8 @@ void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) {
 }
 
 
-void CreateVertexBuffers() {
+void CreateVertexBuffers() 
+{
   // Creating vertex buffers for 2 objects
   size_t model1Size = sizeof(m_ModelVertexes[0]) * m_ModelVertexes.size();
   size_t model2Size = sizeof(m_Model2Vertexes[0]) * m_Model2Vertexes.size();
@@ -1579,6 +1580,12 @@ void initVulkan(GLFWwindow* window)
   createTextureImageView();
   createTextureSampler();
 
+  loadModel(false);
+  loadModel(true);
+
+  CreateVertexBuffers();
+  createIndexBuffer();
+
   createSwapChain();
   createImageViews();
   createRenderPass();
@@ -1598,12 +1605,6 @@ void initVulkan(GLFWwindow* window)
   createDescriptorSets();
   createCommandBuffers();
   */
-
-  loadModel(false);
-  loadModel(true);
-
-  CreateVertexBuffers();
-  createIndexBuffer();
 
   createUniformBuffers();
   createDescriptorPool();
