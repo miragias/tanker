@@ -9,6 +9,13 @@ struct QueueFamilyIndices
   }
 };
 
+struct SwapChainSupportDetails 
+{
+  VkSurfaceCapabilitiesKHR capabilities;
+  std::vector<VkSurfaceFormatKHR> formats;
+  std::vector<VkPresentModeKHR> presentModes;
+};
+
 struct VulkanContext
 {
   VkInstance m_Instance;

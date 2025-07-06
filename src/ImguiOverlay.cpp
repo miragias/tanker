@@ -10,10 +10,7 @@
 #define IMGUI_VULKAN_DEBUG_REPORT
 #endif
 
-float someV = 90.0f;
-float gammaValue = 1;
-
-void imGuiSetupWindow(VkExtent2D swapChainExtent) 
+void renderImgui(VkExtent2D swapChainExtent, GameState& state) 
 {
   // Start the Dear ImGui frame
   ImGui_ImplVulkan_NewFrame();
@@ -27,9 +24,9 @@ void imGuiSetupWindow(VkExtent2D swapChainExtent)
 
   // render your GUI
   ImGui::Begin("JohnMirTest");
-  ImGui::SliderFloat("Amount of perspective", &someV, 0.0f, 90.0f,
+  ImGui::SliderFloat("Amount of perspective", &state.someV, 0.0f, 90.0f,
                       "ratio = %.3f");
-  ImGui::SliderFloat("gamma", &gammaValue, 0.0f, 4.0f, "%.2f");
+  ImGui::SliderFloat("gamma", &state.gammaValue, 0.0f, 4.0f, "%.2f");
   ImGui::ShowDemoWindow();
   ImGui::End();
   // Render dear imgui UI box into our window
@@ -71,14 +68,15 @@ void initImGui(VulkanContext &context, VkDescriptorPool &descriptorPool,
 }
 
 void recreateImguiContext(VulkanContext &context, VkDescriptorPool &descriptorPool,
-               VkRenderPass &renderPass, std::vector<VkImage> &swapChainImages, VkExtent2D swapChainExtent) 
+               VkRenderPass &renderPass, std::vector<VkImage> &swapChainImages,
+                          VkExtent2D swapChainExtent, GameState& state) 
 {
   ImGui_ImplVulkan_Shutdown();
   ImGui_ImplGlfw_Shutdown();
   ImGui::DestroyContext();
   initImGui(context, descriptorPool, renderPass, swapChainImages,
             float(swapChainExtent.width), float(swapChainExtent.height));
-  imGuiSetupWindow(swapChainExtent);
+  renderImgui(swapChainExtent, state);
 }
 
 void ShutDownOverlay()
