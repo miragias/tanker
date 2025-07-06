@@ -340,6 +340,8 @@ void cleanupSwapChain(VulkanContext vulkanContext)
     vkDestroyImageView(vulkanContext.m_Device, m_SwapChainImageViews[i], nullptr);
   }
 
+  vkDestroyImageView(vulkanContext.m_Device, m_DepthImageView, nullptr);
+
   vkDestroySwapchainKHR(vulkanContext.m_Device, m_SwapChain, nullptr);
 
   for (size_t i = 0; i < m_SwapChainImages.size(); i++) {
@@ -1420,7 +1422,6 @@ void cleanup()
     vkFreeMemory(VContext.m_Device, m_TextureImageMemory[i], nullptr);
   }
 
-  vkDestroyImageView(VContext.m_Device, m_DepthImageView, nullptr);
   vkDestroyImage(VContext.m_Device, m_DepthImage, nullptr);
   vkFreeMemory(VContext.m_Device, m_DepthImageMemory, nullptr);
 
@@ -1469,6 +1470,7 @@ void recreateSwapChain(VulkanContext vulkanContext)
   createImageViews(vulkanContext.m_Device);
   createRenderPass();
   createGraphicsPipeline();
+  createDepthResources(vulkanContext.m_Device);
   createFramebuffers();
   createUniformBuffers();
   createDescriptorPool();
@@ -1604,12 +1606,17 @@ void initVulkan(GLFWwindow* window)
   createGraphicsPipeline();
   createDepthResources(VContext.m_Device);
   createFramebuffers();
+  createUniformBuffers();
+  createDescriptorPool();
+  createDescriptorSets();
+  createCommandBuffers();
 
   /*
   createSwapChain();
   createImageViews();
   createRenderPass();
   createGraphicsPipeline();
+  createDepthResources(VContext.m_Device);
   createFramebuffers();
   createUniformBuffers();
   createDescriptorPool();
@@ -1617,10 +1624,6 @@ void initVulkan(GLFWwindow* window)
   createCommandBuffers();
   */
 
-  createUniformBuffers();
-  createDescriptorPool();
-  createDescriptorSets();
-  createCommandBuffers();
 
   createSyncObjects();
 
