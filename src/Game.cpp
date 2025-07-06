@@ -1,6 +1,5 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <array>
-#include <optional>
 #include <glm/glm.hpp>
 #include <glm/gtx/hash.hpp>
 
@@ -16,7 +15,7 @@ extern "C" __declspec(dllexport) void ProcessSimulation(const SimulationInput* i
     UniformBufferObject ubo = {};
     ubo.model = glm::rotate(glm::mat4(1.0f), input->time * glm::radians(90.0f),
                             glm::vec3(0.0f, 0.0f, 1.0f));
-    ubo.view = glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f),
+    ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f),
                            glm::vec3(0.0f, 0.0f, 0.0f),
                            glm::vec3(0.0f, 0.0f, 1.0f));
     ubo.proj = glm::perspective(input->fovRadians,

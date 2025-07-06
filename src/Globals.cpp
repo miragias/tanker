@@ -189,13 +189,3 @@ VkPipelineLayout m_PipelineLayout;
 std::vector<VkDeviceMemory> m_UniformBuffersMemory;
 VkPipeline m_GraphicsPipeline;
 
-
-static FILETIME g_LastDLLWriteTime = {0, 0}; // or use appropriate time type
-
-// Function to unload your DLL
-void UnloadSimulationDLL()
-{
-    // Your DLL unloading code here, e.g. FreeLibrary, cleanup, etc.
-}
-
-

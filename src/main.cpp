@@ -784,11 +784,10 @@ bool LoadSimulationDLL(const char* path)
 }
 
 const char* g_DllPath = "build_dll/Game.dll";
+fs::file_time_type g_LastDLLWriteTime = fs::file_time_type::min();
 
 bool HasDLLChanged(const char* path)
 {
-  return true;
-  /*
     fs::file_time_type currentWriteTime = fs::last_write_time(path);
 
     if (currentWriteTime != g_LastDLLWriteTime)
@@ -799,7 +798,16 @@ bool HasDLLChanged(const char* path)
     }
 
     return false;
-  */
+}
+
+void UnloadSimulationDLL()
+{
+    if (g_DLLHandle)
+    {
+        FreeLibrary(g_DLLHandle);
+        g_DLLHandle = nullptr;
+        g_ProcessSimulation = nullptr;
+    }
 }
 
 void TryHotReloadDLL(const char* dllPath)
