@@ -136,23 +136,22 @@ std::vector<uint32_t> m_VertexIndices;
 std::vector<Vertex> m_Model2Vertexes;
 std::vector<uint32_t> m_Vertex2Indices;
 
-VulkanContext VContext;
 
 VkBuffer vertexBuffer;
 VkDeviceMemory vertexBufferMemory;
 
 struct SwapChain
 {
+  VkSwapchainKHR m_SwapChain;
+  VkFormat m_SwapChainImageFormat;
+  VkExtent2D m_SwapChainExtent;
+  std::vector<VkImage> m_SwapChainImages;
+  std::vector<VkImageView> m_SwapChainImageViews;
+  std::vector<VkFramebuffer> m_SwapChainFrameBuffers;
 };
 
-// Swapchain(I think it can go with the above)
-VkSwapchainKHR m_SwapChain;
-VkFormat m_SwapChainImageFormat;
-VkExtent2D m_SwapChainExtent;
-std::vector<VkImage> m_SwapChainImages;
-std::vector<VkImageView> m_SwapChainImageViews;
-std::vector<VkFramebuffer> m_SwapChainFrameBuffers;
-
+VulkanContext VContext;
+SwapChain SwapChain;
 
 VkDescriptorPool m_DescriptorPool;
 std::vector<VkDescriptorSet> m_DescriptorSets;
@@ -306,26 +305,26 @@ void createSwapChain(VulkanContext vulkanContext)
   createInfo.presentMode = presentMode;
   createInfo.clipped = VK_TRUE;
 
-  if (vkCreateSwapchainKHR(vulkanContext.m_Device, &createInfo, nullptr, &m_SwapChain) !=
+  if (vkCreateSwapchainKHR(vulkanContext.m_Device, &createInfo, nullptr, &SwapChain.m_SwapChain) !=
       VK_SUCCESS) 
   {
     throw std::runtime_error("failed to create swap chain!");
   }
 
-  vkGetSwapchainImagesKHR(vulkanContext.m_Device, m_SwapChain, &imageCount, nullptr);
-  m_SwapChainImages.resize(imageCount);
-  vkGetSwapchainImagesKHR(vulkanContext.m_Device, m_SwapChain, &imageCount,
-                          m_SwapChainImages.data());
+  vkGetSwapchainImagesKHR(vulkanContext.m_Device, SwapChain.m_SwapChain, &imageCount, nullptr);
+  SwapChain.m_SwapChainImages.resize(imageCount);
+  vkGetSwapchainImagesKHR(vulkanContext.m_Device, SwapChain.m_SwapChain, &imageCount,
+                          SwapChain.m_SwapChainImages.data());
 
-  m_SwapChainImageFormat = surfaceFormat.format;
-  m_SwapChainExtent = extent;
+  SwapChain.m_SwapChainImageFormat = surfaceFormat.format;
+  SwapChain.m_SwapChainExtent = extent;
 }
 
 
 void cleanupSwapChain(VulkanContext vulkanContext) 
 {
-  for (size_t i = 0; i < m_SwapChainFrameBuffers.size(); i++) {
-    vkDestroyFramebuffer(vulkanContext.m_Device, m_SwapChainFrameBuffers[i], nullptr);
+  for (size_t i = 0; i < SwapChain.m_SwapChainFrameBuffers.size(); i++) {
+    vkDestroyFramebuffer(vulkanContext.m_Device, SwapChain.m_SwapChainFrameBuffers[i], nullptr);
   }
 
   vkFreeCommandBuffers(vulkanContext.m_Device, m_CommandPool,
@@ -336,15 +335,15 @@ void cleanupSwapChain(VulkanContext vulkanContext)
   vkDestroyPipelineLayout(vulkanContext.m_Device, m_PipelineLayout, nullptr);
   vkDestroyRenderPass(vulkanContext.m_Device, m_RenderPass, nullptr);
 
-  for (size_t i = 0; i < m_SwapChainImageViews.size(); i++) {
-    vkDestroyImageView(vulkanContext.m_Device, m_SwapChainImageViews[i], nullptr);
+  for (size_t i = 0; i < SwapChain.m_SwapChainImageViews.size(); i++) {
+    vkDestroyImageView(vulkanContext.m_Device, SwapChain.m_SwapChainImageViews[i], nullptr);
   }
 
   vkDestroyImageView(vulkanContext.m_Device, m_DepthImageView, nullptr);
 
-  vkDestroySwapchainKHR(vulkanContext.m_Device, m_SwapChain, nullptr);
+  vkDestroySwapchainKHR(vulkanContext.m_Device, SwapChain.m_SwapChain, nullptr);
 
-  for (size_t i = 0; i < m_SwapChainImages.size(); i++) {
+  for (size_t i = 0; i < SwapChain.m_SwapChainImages.size(); i++) {
     vkDestroyBuffer(vulkanContext.m_Device, m_UniformBuffers[i], nullptr);
     vkFreeMemory(vulkanContext.m_Device, m_UniformBuffersMemory[i], nullptr);
   }
@@ -377,11 +376,11 @@ VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags a
 
 void createImageViews(VkDevice device) 
 {
-  m_SwapChainImageViews.resize(m_SwapChainImages.size());
+  SwapChain.m_SwapChainImageViews.resize(SwapChain.m_SwapChainImages.size());
 
-  for (uint32_t i = 0; i < m_SwapChainImages.size(); i++) {
-    m_SwapChainImageViews[i] =
-        createImageView(m_SwapChainImages[i], m_SwapChainImageFormat,
+  for (uint32_t i = 0; i < SwapChain.m_SwapChainImages.size(); i++) {
+    SwapChain.m_SwapChainImageViews[i] =
+        createImageView(SwapChain.m_SwapChainImages[i], SwapChain.m_SwapChainImageFormat,
                         VK_IMAGE_ASPECT_COLOR_BIT, device);
   }
 }
@@ -430,7 +429,7 @@ VkFormat findDepthFormat() {
 void createRenderPass() {
   // Color attachment
   VkAttachmentDescription colorAttachment = {};
-  colorAttachment.format = m_SwapChainImageFormat;
+  colorAttachment.format = SwapChain.m_SwapChainImageFormat;
   colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
   colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
   colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -584,14 +583,14 @@ void createGraphicsPipeline() {
   VkViewport viewport = {};
   viewport.x = 0.0f;
   viewport.y = 0.0f;
-  viewport.width = (float)m_SwapChainExtent.width;
-  viewport.height = (float)m_SwapChainExtent.height;
+  viewport.width = (float)SwapChain.m_SwapChainExtent.width;
+  viewport.height = (float)SwapChain.m_SwapChainExtent.height;
   viewport.minDepth = 0.0f;
   viewport.maxDepth = 1.0f;
 
   VkRect2D scissor = {};
   scissor.offset = {0, 0};
-  scissor.extent = m_SwapChainExtent;
+  scissor.extent = SwapChain.m_SwapChainExtent;
 
   VkPipelineViewportStateCreateInfo viewportState = {};
   viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
@@ -688,9 +687,9 @@ void createGraphicsPipeline() {
 }
 
 void createFramebuffers() {
-  m_SwapChainFrameBuffers.resize(m_SwapChainImageViews.size());
-  for (size_t i = 0; i < m_SwapChainImageViews.size(); i++) {
-    std::array<VkImageView, 2> attachments = {m_SwapChainImageViews[i],
+  SwapChain.m_SwapChainFrameBuffers.resize(SwapChain.m_SwapChainImageViews.size());
+  for (size_t i = 0; i < SwapChain.m_SwapChainImageViews.size(); i++) {
+    std::array<VkImageView, 2> attachments = {SwapChain.m_SwapChainImageViews[i],
                                               m_DepthImageView};
 
     VkFramebufferCreateInfo framebufferInfo = {};
@@ -699,12 +698,12 @@ void createFramebuffers() {
     framebufferInfo.attachmentCount =
         static_cast<uint32_t>(attachments.size());
     framebufferInfo.pAttachments = attachments.data();
-    framebufferInfo.width = m_SwapChainExtent.width;
-    framebufferInfo.height = m_SwapChainExtent.height;
+    framebufferInfo.width = SwapChain.m_SwapChainExtent.width;
+    framebufferInfo.height = SwapChain.m_SwapChainExtent.height;
     framebufferInfo.layers = 1;
 
     if (vkCreateFramebuffer(VContext.m_Device, &framebufferInfo, nullptr,
-                            &m_SwapChainFrameBuffers[i]) != VK_SUCCESS) {
+                            &SwapChain.m_SwapChainFrameBuffers[i]) != VK_SUCCESS) {
       throw std::runtime_error("failed to create framebuffer!");
     }
   }
@@ -785,7 +784,7 @@ void createDepthResources(VkDevice device)
 {
   VkFormat depthFormat = findDepthFormat();
 
-  createImage( m_SwapChainExtent.width, m_SwapChainExtent.height, depthFormat,
+  createImage( SwapChain.m_SwapChainExtent.width, SwapChain.m_SwapChainExtent.height, depthFormat,
       VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
       VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_DepthImage, m_DepthImageMemory);
 
@@ -981,20 +980,20 @@ void createDescriptorPool() {
   std::array<VkDescriptorPoolSize, 3> poolSizes = {};
   poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
   poolSizes[0].descriptorCount =
-      static_cast<uint32_t>(m_SwapChainImages.size());
+      static_cast<uint32_t>(SwapChain.m_SwapChainImages.size());
   poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
   poolSizes[1].descriptorCount =
-      static_cast<uint32_t>(m_SwapChainImages.size()) * 2;
+      static_cast<uint32_t>(SwapChain.m_SwapChainImages.size()) * 2;
   // Imgui descriptorset
   poolSizes[2].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
   poolSizes[2].descriptorCount =
-      static_cast<uint32_t>(m_SwapChainImages.size());
+      static_cast<uint32_t>(SwapChain.m_SwapChainImages.size());
 
   VkDescriptorPoolCreateInfo poolInfo = {};
   poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
   poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
   poolInfo.pPoolSizes = poolSizes.data();
-  poolInfo.maxSets = static_cast<uint32_t>(m_SwapChainImages.size() + 1);
+  poolInfo.maxSets = static_cast<uint32_t>(SwapChain.m_SwapChainImages.size() + 1);
   ;
   poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
 
@@ -1005,22 +1004,22 @@ void createDescriptorPool() {
 }
 
 void createDescriptorSets() {
-  std::vector<VkDescriptorSetLayout> layouts(m_SwapChainImages.size(),
+  std::vector<VkDescriptorSetLayout> layouts(SwapChain.m_SwapChainImages.size(),
                                               m_DescriptorSetLayout);
   VkDescriptorSetAllocateInfo allocInfo = {};
   allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
   allocInfo.descriptorPool = m_DescriptorPool;
   allocInfo.descriptorSetCount =
-      static_cast<uint32_t>(m_SwapChainImages.size());
+      static_cast<uint32_t>(SwapChain.m_SwapChainImages.size());
   allocInfo.pSetLayouts = layouts.data();
 
-  m_DescriptorSets.resize(m_SwapChainImages.size());
+  m_DescriptorSets.resize(SwapChain.m_SwapChainImages.size());
   if (vkAllocateDescriptorSets(VContext.m_Device, &allocInfo,
                                 m_DescriptorSets.data()) != VK_SUCCESS) {
     throw std::runtime_error("failed to allocate descriptor sets!");
   }
 
-  for (size_t i = 0; i < m_SwapChainImages.size(); i++) {
+  for (size_t i = 0; i < SwapChain.m_SwapChainImages.size(); i++) {
     VkDescriptorBufferInfo bufferInfo = {};
     bufferInfo.buffer = m_UniformBuffers[i];
     bufferInfo.offset = 0;
@@ -1060,7 +1059,7 @@ void createDescriptorSets() {
 }
 
 void createCommandBuffers() {
-  m_CommandBuffers.resize(m_SwapChainFrameBuffers.size());
+  m_CommandBuffers.resize(SwapChain.m_SwapChainFrameBuffers.size());
 
   VkCommandBufferAllocateInfo allocInfo = {};
   allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -1276,10 +1275,10 @@ void createUniformBuffers()
 {
   VkDeviceSize bufferSize = sizeof(UniformBufferObject);
 
-  m_UniformBuffers.resize(m_SwapChainImages.size());
-  m_UniformBuffersMemory.resize(m_SwapChainImages.size());
+  m_UniformBuffers.resize(SwapChain.m_SwapChainImages.size());
+  m_UniformBuffersMemory.resize(SwapChain.m_SwapChainImages.size());
 
-  for (size_t i = 0; i < m_SwapChainImages.size(); i++) {
+  for (size_t i = 0; i < SwapChain.m_SwapChainImages.size(); i++) {
     createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                   VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
                       VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
@@ -1288,11 +1287,11 @@ void createUniformBuffers()
 }
 
 void createSyncObjects() {
-  m_ImageAvailableSemaphores.resize(m_SwapChainImages.size());
-  m_RenderFinishedSemaphores.resize(m_SwapChainImages.size());
-  m_InFlightFences.resize(m_SwapChainImages.size());
+  m_ImageAvailableSemaphores.resize(SwapChain.m_SwapChainImages.size());
+  m_RenderFinishedSemaphores.resize(SwapChain.m_SwapChainImages.size());
+  m_InFlightFences.resize(SwapChain.m_SwapChainImages.size());
 
-  m_ImagesInFlight.resize(m_SwapChainImages.size(), VK_NULL_HANDLE);
+  m_ImagesInFlight.resize(SwapChain.m_SwapChainImages.size(), VK_NULL_HANDLE);
 
   VkSemaphoreCreateInfo semaphoreInfo = {};
   semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -1301,7 +1300,7 @@ void createSyncObjects() {
   fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
   fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-  for (size_t i = 0; i < m_SwapChainImages.size(); i++) {
+  for (size_t i = 0; i < SwapChain.m_SwapChainImages.size(); i++) {
     if (vkCreateSemaphore(VContext.m_Device, &semaphoreInfo, nullptr,
                           &m_ImageAvailableSemaphores[i]) != VK_SUCCESS ||
         vkCreateSemaphore(VContext.m_Device, &semaphoreInfo, nullptr,
@@ -1321,7 +1320,7 @@ void setupCommandBuffers(uint32 i)
   beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
   beginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
 
-  size_t frameFenceIndex = (m_CurrentFrame + 1) % m_SwapChainImages.size();
+  size_t frameFenceIndex = (m_CurrentFrame + 1) % SwapChain.m_SwapChainImages.size();
   vkWaitForFences(VContext.m_Device, 1, &m_InFlightFences[frameFenceIndex], VK_TRUE,
                   UINT64_MAX);
   if (vkBeginCommandBuffer(m_CommandBuffers[i], &beginInfo) != VK_SUCCESS) {
@@ -1331,9 +1330,9 @@ void setupCommandBuffers(uint32 i)
   VkRenderPassBeginInfo renderPassInfo = {};
   renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
   renderPassInfo.renderPass = m_RenderPass;
-  renderPassInfo.framebuffer = m_SwapChainFrameBuffers[i];
+  renderPassInfo.framebuffer = SwapChain.m_SwapChainFrameBuffers[i];
   renderPassInfo.renderArea.offset = {0, 0};
-  renderPassInfo.renderArea.extent = m_SwapChainExtent;
+  renderPassInfo.renderArea.extent = SwapChain.m_SwapChainExtent;
   renderPassInfo.clearValueCount =
       static_cast<uint32_t>(m_ClearValues.size());
   renderPassInfo.pClearValues = m_ClearValues.data();
@@ -1389,7 +1388,7 @@ void ProcessSimulation() {
                   glm::vec3(0.0f, 0.0f, 1.0f));
   ubo.proj = glm::perspective(
       glm::radians(State.someV),
-      m_SwapChainExtent.width / (float)m_SwapChainExtent.height, 0.1f, 10.0f);
+      SwapChain.m_SwapChainExtent.width / (float)SwapChain.m_SwapChainExtent.height, 0.1f, 10.0f);
   ubo.proj[1][1] *= -1;
   ubo.gamma = 1 / State.gammaValue;
 
@@ -1434,7 +1433,7 @@ void cleanup()
   vkDestroyBuffer(VContext.m_Device, m_VertexBuffer, nullptr);
   vmaFreeMemory(m_Allocator, m_VertexBufferAllocation);
 
-  for (size_t i = 0; i < m_SwapChainImages.size(); i++) {
+  for (size_t i = 0; i < SwapChain.m_SwapChainImages.size(); i++) {
     vkDestroySemaphore(VContext.m_Device, m_RenderFinishedSemaphores[i], nullptr);
     vkDestroySemaphore(VContext.m_Device, m_ImageAvailableSemaphores[i], nullptr);
     vkDestroyFence(VContext.m_Device, m_InFlightFences[i], nullptr);
@@ -1466,6 +1465,7 @@ void recreateSwapChain(VulkanContext vulkanContext)
   vkDeviceWaitIdle(vulkanContext.m_Device);
   cleanupSwapChain(vulkanContext);
 
+  SwapChain = {};
   createSwapChain(vulkanContext);
   createImageViews(vulkanContext.m_Device);
   createRenderPass();
@@ -1477,7 +1477,7 @@ void recreateSwapChain(VulkanContext vulkanContext)
   createDescriptorSets();
   createCommandBuffers();
 
-  recreateImguiContext(VContext, m_DescriptorPool, m_RenderPass, m_SwapChainImages, m_SwapChainExtent, State);
+  recreateImguiContext(VContext, m_DescriptorPool, m_RenderPass, SwapChain.m_SwapChainImages, SwapChain.m_SwapChainExtent, State);
 }
 
 void drawFrame() {
@@ -1490,7 +1490,7 @@ void drawFrame() {
 
   // Acquire an image from the swapchain
   VkResult result =
-      vkAcquireNextImageKHR(VContext.m_Device, m_SwapChain, UINT64_MAX,
+      vkAcquireNextImageKHR(VContext.m_Device, SwapChain.m_SwapChain, UINT64_MAX,
                             m_ImageAvailableSemaphores[m_CurrentFrame],
                             VK_NULL_HANDLE, &m_ImageIndex);
 
@@ -1534,7 +1534,7 @@ void drawFrame() {
   presentInfo.waitSemaphoreCount = 1;
   presentInfo.pWaitSemaphores = signalSemaphores;
 
-  VkSwapchainKHR swapChains[] = {m_SwapChain};
+  VkSwapchainKHR swapChains[] = {SwapChain.m_SwapChain};
   presentInfo.swapchainCount = 1;
   presentInfo.pSwapchains = swapChains;
 
@@ -1552,7 +1552,7 @@ void drawFrame() {
     throw std::runtime_error("failed to present swap chain image!");
   }
 
-  m_CurrentFrame = (m_CurrentFrame + 1) % m_SwapChainImages.size();
+  m_CurrentFrame = (m_CurrentFrame + 1) % SwapChain.m_SwapChainImages.size();
 }
 
 void initVulkan(GLFWwindow* window) 
@@ -1627,8 +1627,8 @@ void initVulkan(GLFWwindow* window)
 
   createSyncObjects();
 
-  initImGui(VContext, m_DescriptorPool, m_RenderPass, m_SwapChainImages,
-            float(m_SwapChainExtent.width), float(m_SwapChainExtent.height));
+  initImGui(VContext, m_DescriptorPool, m_RenderPass, SwapChain.m_SwapChainImages,
+            float(SwapChain.m_SwapChainExtent.width), float(SwapChain.m_SwapChainExtent.height));
 }
 
 void mainLoop() 
@@ -1638,7 +1638,7 @@ void mainLoop()
   while (!glfwWindowShouldClose(VContext.m_Window)) 
   {
     glfwPollEvents();    // Input
-    renderImgui(m_SwapChainExtent, State);  // Imgui
+    renderImgui(SwapChain.m_SwapChainExtent, State);  // Imgui
     ProcessSimulation(); // Do something
     drawFrame();         // Render
   }
