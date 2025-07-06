@@ -766,7 +766,8 @@ extern "C" void ProcessSimulation(const SimulationInput* input);
 
 bool LoadSimulationDLL(const char* path)
 {
-    g_DLLHandle = LoadLibraryA(path);
+    CopyFileA(path, "build_dll/Game_temp.dll", FALSE);
+    g_DLLHandle = LoadLibraryA("build_dll/Game_temp.dll");
     if (!g_DLLHandle)
     {
         MessageBoxA(0, "Failed to load DLL", "Error", MB_OK);

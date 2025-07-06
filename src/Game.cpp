@@ -13,7 +13,7 @@
 extern "C" __declspec(dllexport) void ProcessSimulation(const SimulationInput* input)
 {
     UniformBufferObject ubo = {};
-    ubo.model = glm::rotate(glm::mat4(1.0f), input->time * glm::radians(90.0f),
+    ubo.model = glm::rotate(glm::mat4(1.0f), input->time * glm::radians(60.0f),
                             glm::vec3(0.0f, 0.0f, 1.0f));
     ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f),
                            glm::vec3(0.0f, 0.0f, 0.0f),
@@ -21,6 +21,8 @@ extern "C" __declspec(dllexport) void ProcessSimulation(const SimulationInput* i
     ubo.proj = glm::perspective(input->fovRadians,
                                 input->aspectRatio,
                                 0.1f, 10.0f);
+    ubo.model = glm::rotate(ubo.model, glm::radians(45.0f),
+                        glm::vec3(0.0f, 1.0f, 0.0f)); // Y rotation
     ubo.proj[1][1] *= -1;
     ubo.gamma = 1 / input->gamma;
 
