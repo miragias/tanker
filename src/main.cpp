@@ -1,67 +1,17 @@
-#define IMGUI_DEFINE_MATH_OPERATORS
-#define GLFW_INCLUDE_VULKAN
-#define mut
-#include <Windows.h>
-#include <GLFW/glfw3.h>
-#include <optional>
-#include <vector>
-typedef uint32_t uint32;
-
 #include "Rendering/VulkanInternals.h"
 
-#define TINYOBJLOADER_IMPLEMENTATION
-#include "Other/tiny_obj_loader.h"
-
-#include <algorithm>
-#include <cstdlib>
-#include <cstring>
-#include <fstream>
-#include <functional>
-#include <iostream>
-#include <set>
-#include <stdexcept>
-#define GLM_ENABLE_EXPERIMENTAL
-#include <array>
-#include <glm/glm.hpp>
-#include <glm/gtx/hash.hpp>
-
-#define GLM_FORCE_RADIANS
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-
-#define STB_IMAGE_IMPLEMENTATION
-#include "Other/stb_image.h"
-
-#include <chrono>
-
-#define VMA_IMPLEMENTATION
-#pragma warning(push)
-#pragma warning(disable : 4100)
-#pragma warning(disable : 4324)
-#pragma warning(disable:4189)
-#pragma warning(disable: 4127)
-#include "vk_mem_alloc.h"
-#pragma warning(pop)
+#include "Globals.cpp"
 
 const std::vector<const char *> validationLayers = {"VK_LAYER_KHRONOS_validation"};
 const std::vector<const char *> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 
-struct GameState
-{
-  float someV = 90.0f;
-  float gammaValue = 1;
-};
-
-GameState State;
-
-#include "Globals.cpp"
 #include "Core/CoreIO.cpp"
 #include "Rendering/VulkanCommon.cpp"
 #include "Rendering/VulkanSetup.cpp"
 #include "ImguiOverlay.cpp"
 #include "Rendering/NativeWindow.cpp"
 #include "Rendering/VulkanSwapChain.cpp"
+
 
 namespace std 
 {
@@ -575,7 +525,7 @@ void setupCommandBuffers(uint32 i)
   }
 }
 
-// Just rotating around the object
+/*
 // TODO: Hot reload this and divide the time /2 as an example
 void ProcessSimulation() {
   static auto startTime = std::chrono::high_resolution_clock::now();
@@ -603,6 +553,7 @@ void ProcessSimulation() {
   memcpy(data, &ubo, sizeof(ubo));
   vkUnmapMemory(VContext.m_Device, m_UniformBuffersMemory[m_ImageIndex]);
 }
+*/
 
 void DestroyDebugUtilsMessengerEXT(VkInstance instance,
                                    VkDebugUtilsMessengerEXT callback,
@@ -806,16 +757,100 @@ void initVulkan(GLFWwindow* window)
             float(SwapChain.m_SwapChainExtent.width), float(SwapChain.m_SwapChainExtent.height));
 }
 
+namespace fs = std::filesystem;
+typedef void (*ProcessSimulationFn)(const SimulationInput*);
+HMODULE g_DLLHandle = nullptr;
+ProcessSimulationFn g_ProcessSimulation = nullptr;
+
+extern "C" void ProcessSimulation(const SimulationInput* input);
+
+bool LoadSimulationDLL(const char* path)
+{
+    g_DLLHandle = LoadLibraryA(path);
+    if (!g_DLLHandle)
+    {
+        MessageBoxA(0, "Failed to load DLL", "Error", MB_OK);
+        return false;
+    }
+
+    g_ProcessSimulation = (ProcessSimulationFn)GetProcAddress(g_DLLHandle, "ProcessSimulation");
+    if (!g_ProcessSimulation)
+    {
+        MessageBoxA(0, "Failed to find ProcessSimulation in DLL", "Error", MB_OK);
+        return false;
+    }
+
+    return true;
+}
+
+const char* g_DllPath = "build_dll/Game.dll";
+
+bool HasDLLChanged(const char* path)
+{
+  return true;
+  /*
+    fs::file_time_type currentWriteTime = fs::last_write_time(path);
+
+    if (currentWriteTime != g_LastDLLWriteTime)
+    {
+        std::cout << "RELOADED DLL\n";
+        g_LastDLLWriteTime = currentWriteTime;
+        return true;
+    }
+
+    return false;
+  */
+}
+
+void TryHotReloadDLL(const char* dllPath)
+{
+    if (HasDLLChanged(dllPath))
+    {
+        UnloadSimulationDLL();
+
+        // Wait a bit to avoid race with compiler/linker still writing the DLL
+        Sleep(100); // in ms
+
+        if (!LoadSimulationDLL(dllPath))
+        {
+            MessageBoxA(0, "Reload failed", "Hot Reload", MB_OK);
+        }
+        else
+        {
+            OutputDebugStringA("Hot Reloaded Simulation DLL\n");
+        }
+    }
+}
+
 void mainLoop() 
 {
-
   // Engine loop
   while (!glfwWindowShouldClose(VContext.m_Window)) 
   {
     glfwPollEvents();    // Input
-    renderImgui(SwapChain.m_SwapChainExtent, State);  // Imgui
-    ProcessSimulation(); // Do something
-    drawFrame();         // Render
+    renderImgui(SwapChain.m_SwapChainExtent, State);
+
+    TryHotReloadDLL(g_DllPath);
+    SimulationInput input = {};
+
+    static auto startTime = std::chrono::high_resolution_clock::now();
+    auto currentTime = std::chrono::high_resolution_clock::now();
+    float time = std::chrono::duration<float, std::chrono::seconds::period>(
+                      currentTime - startTime)
+                      .count();
+
+    input.time = time;
+    input.imageIndex = m_ImageIndex;
+    input.aspectRatio = SwapChain.m_SwapChainExtent.width / (float)SwapChain.m_SwapChainExtent.height;
+    input.fovRadians = glm::radians(State.someV);
+    input.gamma = State.gammaValue;
+    input.device = VContext.m_Device;
+    input.uniformBuffersMemory = m_UniformBuffersMemory;
+    input.swapchainExtent = SwapChain.m_SwapChainExtent;
+
+    if (g_ProcessSimulation) g_ProcessSimulation(&input);
+
+    drawFrame();
   }
 
   // Shutdown

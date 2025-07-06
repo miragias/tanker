@@ -1,3 +1,13 @@
+#define IMGUI_DEFINE_MATH_OPERATORS
+#define GLFW_INCLUDE_VULKAN
+#include <Windows.h>
+#include <GLFW/glfw3.h>
+#include <optional>
+#include <vector>
+typedef uint32_t uint32;
+#include <filesystem>
+#include <iostream>
+
 int WIDTH = 2000;
 int HEIGHT = 1000;
 bool g_FrameBufferResized = false;
@@ -5,6 +15,47 @@ bool g_SwapChainRebuild = false;
 int g_SwapChainResizeWidth = 0;
 int g_SwapChainResizeHeight = 0;
 const int NUMBER_OF_IMAGES = 2;
+
+#define VMA_IMPLEMENTATION
+#pragma warning(push)
+#pragma warning(disable : 4100)
+#pragma warning(disable : 4324)
+#pragma warning(disable:4189)
+#pragma warning(disable: 4127)
+#include "vk_mem_alloc.h"
+#pragma warning(pop)
+
+#define TINYOBJLOADER_IMPLEMENTATION
+#include "Other/tiny_obj_loader.h"
+
+#include <algorithm>
+#include <cstdlib>
+#include <cstring>
+#include <fstream>
+#include <functional>
+#include <set>
+#include <stdexcept>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <array>
+#include <glm/glm.hpp>
+#include <glm/gtx/hash.hpp>
+
+#define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+
+#define STB_IMAGE_IMPLEMENTATION
+#include "Other/stb_image.h"
+
+#include <chrono>
+
+struct GameState
+{
+  float someV = 90.0f;
+  float gammaValue = 1;
+};
+
 
 struct UniformBufferObject 
 {
@@ -70,6 +121,18 @@ struct QueueFamilyIndices
   }
 };
 
+struct SimulationInput
+{
+    float time;
+    uint32_t imageIndex;
+    float aspectRatio;
+    float fovRadians;
+    float gamma;
+    VkDevice device;
+    std::vector<VkDeviceMemory> uniformBuffersMemory;
+    VkExtent2D swapchainExtent;
+};
+
 struct VulkanSwapChain
 {
   VkSwapchainKHR m_SwapChain;
@@ -95,7 +158,7 @@ struct SwapChainSupportDetails
 struct VulkanContext
 {
   VkInstance m_Instance;
-  GLFWwindow *m_Window;
+  GLFWwindow* m_Window;
   VkPhysicalDevice m_PhysicalDevice = VK_NULL_HANDLE;
   VkSurfaceKHR m_Surface;
   VkDevice m_Device;
@@ -105,6 +168,8 @@ struct VulkanContext
   VkQueue m_PresentQueue;
 };
 
+
+GameState State;
 
 VulkanContext VContext;
 VulkanSwapChain SwapChain;
@@ -125,5 +190,12 @@ std::vector<VkDeviceMemory> m_UniformBuffersMemory;
 VkPipeline m_GraphicsPipeline;
 
 
+static FILETIME g_LastDLLWriteTime = {0, 0}; // or use appropriate time type
+
+// Function to unload your DLL
+void UnloadSimulationDLL()
+{
+    // Your DLL unloading code here, e.g. FreeLibrary, cleanup, etc.
+}
 
 
