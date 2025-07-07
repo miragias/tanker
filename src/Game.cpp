@@ -1,32 +1,25 @@
-#define GLM_ENABLE_EXPERIMENTAL
-#include <glm/glm.hpp>
-#include <glm/gtx/hash.hpp>
-
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <vulkan/vulkan.h>
 #include "Globals.cpp"
 
 extern "C" __declspec(dllexport) void ProcessSimulation(const SimulationInput* input)
 {
+    Camera camera;
+    camera.Position     = glm::vec3(0.0f, 4.0f, -10.0f);
+    camera.Target       = glm::vec3(0.0f, -1.0f, 0.0f);
+    camera.Up           = glm::vec3(0.0f, 1.0f, 0.0f);
+    camera.FovRadians   = input->fovRadians;
+    camera.AspectRatio  = input->aspectRatio;
+    camera.NearPlane    = 0.1f;
+    camera.FarPlane     = 10.0f;
+
     UniformBufferObject ubo = {};
     ubo.model = glm::rotate(glm::mat4(1.0f), input->time * glm::radians(60.0f),
-                            glm::vec3(0.0f, 0.0f, 1.0f));
-    ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f),
-                           glm::vec3(0.0f, 0.0f, 0.0f),
-                           glm::vec3(0.0f, 0.0f, 1.0f));
-    ubo.proj = glm::perspective(input->fovRadians,
-                                input->aspectRatio,
-                                0.1f, 10.0f);
-    /*
-    ubo.model = glm::rotate(glm::mat4(1.0f), input->time * glm::radians(60.0f),
-                            glm::vec3(1.0f, 0.0f, 0.0f));
-    */
+                            glm::vec3(0.0f, 1.0f, 0.0f));
 
-    ubo.proj[1][1] *= -1;
-    ubo.gamma = 1 / input->gamma;
+    ubo.view = camera.GetViewMatrix();
+    ubo.proj = camera.GetProjectionMatrix();
+    ubo.gamma = 1.0f / input->gamma;
 
     void* data;
     vkMapMemory(input->device, input->uniformBuffersMemory[input->imageIndex],

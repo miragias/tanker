@@ -508,8 +508,10 @@ void setupCommandBuffers(uint32 i)
                           0, 1, &m_DescriptorSets[i], 0, nullptr);
 
   //TODO(JohnMir): For loop here one command buffer and keep track of sizes etc
+  /*
   vkCmdDrawIndexed(m_CommandBuffers[i],
                     static_cast<uint32_t>(m_VertexIndices.size()), 1, 0, 0, 0);
+  */
   vkCmdDrawIndexed(m_CommandBuffers[i],
                     static_cast<uint32_t>(m_Vertex2Indices.size()), 1,
                     static_cast<uint32_t>(m_VertexIndices.size()), 
@@ -524,36 +526,6 @@ void setupCommandBuffers(uint32 i)
     throw std::runtime_error("failed to record command buffer!");
   }
 }
-
-/*
-// TODO: Hot reload this and divide the time /2 as an example
-void ProcessSimulation() {
-  static auto startTime = std::chrono::high_resolution_clock::now();
-
-  auto currentTime = std::chrono::high_resolution_clock::now();
-  float time = std::chrono::duration<float, std::chrono::seconds::period>(
-                    currentTime - startTime)
-                    .count();
-
-  UniformBufferObject ubo = {};
-  ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f),
-                          glm::vec3(0.0f, 0.0f, 1.0f));
-  ubo.view =
-      glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f),
-                  glm::vec3(0.0f, 0.0f, 1.0f));
-  ubo.proj = glm::perspective(
-      glm::radians(State.someV),
-      SwapChain.m_SwapChainExtent.width / (float)SwapChain.m_SwapChainExtent.height, 0.1f, 10.0f);
-  ubo.proj[1][1] *= -1;
-  ubo.gamma = 1 / State.gammaValue;
-
-  void *data;
-  vkMapMemory(VContext.m_Device, m_UniformBuffersMemory[m_ImageIndex], 0, sizeof(ubo),
-              0, &data);
-  memcpy(data, &ubo, sizeof(ubo));
-  vkUnmapMemory(VContext.m_Device, m_UniformBuffersMemory[m_ImageIndex]);
-}
-*/
 
 void DestroyDebugUtilsMessengerEXT(VkInstance instance,
                                    VkDebugUtilsMessengerEXT callback,
@@ -838,7 +810,6 @@ void mainLoop()
   {
     glfwPollEvents();    // Input
     renderImgui(SwapChain.m_SwapChainExtent, State);
-
     TryHotReloadDLL(g_DllPath);
     SimulationInput input = {};
 
@@ -847,7 +818,6 @@ void mainLoop()
     float time = std::chrono::duration<float, std::chrono::seconds::period>(
                       currentTime - startTime)
                       .count();
-
     input.time = time;
     input.imageIndex = m_ImageIndex;
     input.aspectRatio = SwapChain.m_SwapChainExtent.width / (float)SwapChain.m_SwapChainExtent.height;

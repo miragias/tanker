@@ -121,6 +121,29 @@ struct QueueFamilyIndices
   }
 };
 
+struct Camera
+{
+    glm::vec3 Position;
+    glm::vec3 Target;
+    glm::vec3 Up;
+    float     FovRadians;
+    float     AspectRatio;
+    float     NearPlane;
+    float     FarPlane;
+
+    glm::mat4 GetViewMatrix() const
+    {
+        return glm::lookAt(Position, Target, Up);
+    }
+
+    glm::mat4 GetProjectionMatrix() const
+    {
+        glm::mat4 proj = glm::perspective(FovRadians, AspectRatio, NearPlane, FarPlane);
+        proj[1][1] *= -1;
+        return proj;
+    }
+};
+
 struct SimulationInput
 {
     float time;
@@ -131,6 +154,7 @@ struct SimulationInput
     VkDevice device;
     std::vector<VkDeviceMemory> uniformBuffersMemory;
     VkExtent2D swapchainExtent;
+    Camera Cam;
 };
 
 struct VulkanSwapChain
@@ -170,7 +194,6 @@ struct VulkanContext
 
 
 GameState State;
-
 VulkanContext VContext;
 VulkanSwapChain SwapChain;
 VkRenderPass m_RenderPass;
@@ -188,4 +211,3 @@ std::array<VkClearValue, 2> m_ClearValues = {};
 VkPipelineLayout m_PipelineLayout;
 std::vector<VkDeviceMemory> m_UniformBuffersMemory;
 VkPipeline m_GraphicsPipeline;
-
