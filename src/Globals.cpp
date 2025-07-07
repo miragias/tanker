@@ -193,7 +193,10 @@ struct VulkanContext
 };
 
 
+//TODO(JohnMir): Merge these
 GameState State;
+SimulationInput GameInput;
+
 VulkanContext VContext;
 VulkanSwapChain SwapChain;
 VkRenderPass m_RenderPass;

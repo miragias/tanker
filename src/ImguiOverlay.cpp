@@ -10,6 +10,35 @@
 #define IMGUI_VULKAN_DEBUG_REPORT
 #endif
 
+void RenderCameraDebug(Camera& camera)
+{
+    if (ImGui::CollapsingHeader("Camera Debug"))
+    {
+        if (ImGui::TreeNode("Position"))
+        {
+            ImGui::DragFloat3("Position", &camera.Position.x, 0.1f);
+            ImGui::TreePop();
+        }
+
+        if (ImGui::TreeNode("Target"))
+        {
+            ImGui::DragFloat3("Target", &camera.Target.x, 0.1f);
+            ImGui::TreePop();
+        }
+
+        if (ImGui::TreeNode("Up"))
+        {
+            ImGui::DragFloat3("Up", &camera.Up.x, 0.1f);
+            ImGui::TreePop();
+        }
+
+        ImGui::SliderAngle("FOV", &camera.FovRadians, 10.0f, 120.0f);
+        ImGui::DragFloat("Aspect Ratio", &camera.AspectRatio, 0.01f, 0.1f, 4.0f);
+        ImGui::DragFloat("Near Plane", &camera.NearPlane, 0.01f, 0.001f, 10.0f);
+        ImGui::DragFloat("Far Plane", &camera.FarPlane, 1.0f, camera.NearPlane + 0.01f, 10000.0f);
+    }
+}
+
 void renderImgui(VkExtent2D swapChainExtent, GameState& state) 
 {
   // Start the Dear ImGui frame
@@ -28,6 +57,7 @@ void renderImgui(VkExtent2D swapChainExtent, GameState& state)
                       "ratio = %.3f");
   ImGui::SliderFloat("gamma", &state.gammaValue, 0.0f, 4.0f, "%.2f");
   ImGui::ShowDemoWindow();
+  RenderCameraDebug(GameInput.Cam);
   ImGui::End();
   // Render dear imgui UI box into our window
   ImGui::Render();

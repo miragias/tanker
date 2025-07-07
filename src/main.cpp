@@ -12,6 +12,8 @@ const std::vector<const char *> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_N
 #include "Rendering/NativeWindow.cpp"
 #include "Rendering/VulkanSwapChain.cpp"
 
+//TODO(JohnMir): 
+//Arena Allocators
 
 namespace std 
 {
@@ -598,7 +600,9 @@ void recreateSwapChain(VulkanContext vulkanContext)
 
   SwapChain = CreateSwapChain(vulkanContext);
 
-  recreateImguiContext(VContext, m_DescriptorPool, m_RenderPass, SwapChain.m_SwapChainImages, SwapChain.m_SwapChainExtent, State);
+  //TODO:JohnMir: the last var
+  recreateImguiContext(VContext, m_DescriptorPool, m_RenderPass, SwapChain.m_SwapChainImages,
+                       SwapChain.m_SwapChainExtent, State);
 }
 
 void drawFrame() {
@@ -734,7 +738,7 @@ typedef void (*ProcessSimulationFn)(const SimulationInput*);
 HMODULE g_DLLHandle = nullptr;
 ProcessSimulationFn g_ProcessSimulation = nullptr;
 
-extern "C" void ProcessSimulation(const SimulationInput* input);
+extern "C" void ProcessSimulation(const SimulationInput* inp);
 
 bool LoadSimulationDLL(const char* path)
 {
@@ -804,30 +808,46 @@ void TryHotReloadDLL(const char* dllPath)
 }
 
 void mainLoop() 
-{
+{ 
+    //TODO(JohnMir): Make this a pointer
+    GameInput = {};
+    //The state initialization
+    //Some stuff
+    GameInput.aspectRatio = SwapChain.m_SwapChainExtent.width / (float)SwapChain.m_SwapChainExtent.height;
+    GameInput.fovRadians = glm::radians(State.someV);
+    GameInput.gamma = State.gammaValue;
+    GameInput.device = VContext.m_Device;
+    GameInput.uniformBuffersMemory = m_UniformBuffersMemory;
+    GameInput.swapchainExtent = SwapChain.m_SwapChainExtent;
+
+    //Make camera
+    Camera camera;
+    camera.Position     = glm::vec3(0.0f, 4.0f, -10.0f);
+    camera.Target       = glm::vec3(0.0f, -1.0f, 0.0f);
+    camera.Up           = glm::vec3(0.0f, 1.0f, 0.0f);
+    camera.FovRadians   = glm::radians(State.someV);
+    camera.AspectRatio  = SwapChain.m_SwapChainExtent.width / (float)SwapChain.m_SwapChainExtent.height;
+    camera.NearPlane    = 0.1f;
+    camera.FarPlane     = 1000.0f;
+    GameInput.Cam = camera;
+
   // Engine loop
   while (!glfwWindowShouldClose(VContext.m_Window)) 
   {
-    glfwPollEvents();    // Input
+    glfwPollEvents();
+
     renderImgui(SwapChain.m_SwapChainExtent, State);
     TryHotReloadDLL(g_DllPath);
-    SimulationInput input = {};
 
     static auto startTime = std::chrono::high_resolution_clock::now();
     auto currentTime = std::chrono::high_resolution_clock::now();
     float time = std::chrono::duration<float, std::chrono::seconds::period>(
                       currentTime - startTime)
                       .count();
-    input.time = time;
-    input.imageIndex = m_ImageIndex;
-    input.aspectRatio = SwapChain.m_SwapChainExtent.width / (float)SwapChain.m_SwapChainExtent.height;
-    input.fovRadians = glm::radians(State.someV);
-    input.gamma = State.gammaValue;
-    input.device = VContext.m_Device;
-    input.uniformBuffersMemory = m_UniformBuffersMemory;
-    input.swapchainExtent = SwapChain.m_SwapChainExtent;
+    GameInput.time = time;
+    GameInput.imageIndex = m_ImageIndex;
 
-    if (g_ProcessSimulation) g_ProcessSimulation(&input);
+    if (g_ProcessSimulation) g_ProcessSimulation(&GameInput);
     drawFrame();
 
     //Check close the window
