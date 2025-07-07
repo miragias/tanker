@@ -1,6 +1,10 @@
 @echo off
 setlocal EnableDelayedExpansion
 
+echo Building Game.dll...
+call "C:\Users\ioann\Programming\tanker\buildDll.bat"
+if errorlevel 1 goto BuildFailed
+
 :: Output folder for objs and exe
 set BuildDir=build
 
