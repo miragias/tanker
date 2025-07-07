@@ -44,18 +44,13 @@ const int NUMBER_OF_IMAGES = 2;
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+using vec3 = glm::vec3;
+using vec2 = glm::vec2;
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "Other/stb_image.h"
 
 #include <chrono>
-
-struct GameState
-{
-  float someV = 90.0f;
-  float gammaValue = 1;
-};
-
 
 struct UniformBufferObject 
 {
@@ -67,9 +62,9 @@ struct UniformBufferObject
 
 struct Vertex 
 {
-  glm::vec3 pos;
-  glm::vec3 color;
-  glm::vec2 texCoord;
+  vec3 pos;
+  vec3 color;
+  vec2 texCoord;
 
   static VkVertexInputBindingDescription getBindingDescription() 
   {
@@ -144,19 +139,6 @@ struct Camera
     }
 };
 
-struct SimulationInput
-{
-    float time;
-    uint32_t imageIndex;
-    float aspectRatio;
-    float fovRadians;
-    float gamma;
-    VkDevice device;
-    std::vector<VkDeviceMemory> uniformBuffersMemory;
-    VkExtent2D swapchainExtent;
-    Camera Cam;
-};
-
 struct VulkanSwapChain
 {
   VkSwapchainKHR m_SwapChain;
@@ -193,9 +175,21 @@ struct VulkanContext
 };
 
 
-//TODO(JohnMir): Merge these
-GameState State;
-SimulationInput GameInput;
+struct GameState
+{
+  float gammaValue = 1;
+  float time;
+  uint32_t imageIndex;
+  float aspectRatio;
+  float fovRadians;
+  float gamma;
+  VkDevice device;
+  std::vector<VkDeviceMemory> uniformBuffersMemory;
+  VkExtent2D swapchainExtent;
+  Camera Cam;
+};
+
+GameState G_GameState;
 
 VulkanContext VContext;
 VulkanSwapChain SwapChain;

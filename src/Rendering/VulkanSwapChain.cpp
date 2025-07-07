@@ -248,7 +248,7 @@ void createDescriptorSets(VkDevice device, std::vector<VkImage>& swapChainImages
   }
 }
 
-void createCommandBuffers(VkDevice device, int numberOfCommandBufferstoCreate) 
+void createCommandBuffers(VkDevice device, size_t numberOfCommandBufferstoCreate) 
 {
   m_CommandBuffers.resize(numberOfCommandBufferstoCreate);
 

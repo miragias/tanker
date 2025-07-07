@@ -53,11 +53,9 @@ void renderImgui(VkExtent2D swapChainExtent, GameState& state)
 
   // render your GUI
   ImGui::Begin("JohnMirTest");
-  ImGui::SliderFloat("Amount of perspective", &state.someV, 0.0f, 90.0f,
-                      "ratio = %.3f");
   ImGui::SliderFloat("gamma", &state.gammaValue, 0.0f, 4.0f, "%.2f");
   ImGui::ShowDemoWindow();
-  RenderCameraDebug(GameInput.Cam);
+  RenderCameraDebug(state.Cam);
   ImGui::End();
   // Render dear imgui UI box into our window
   ImGui::Render();
