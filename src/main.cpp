@@ -828,8 +828,13 @@ void mainLoop()
     input.swapchainExtent = SwapChain.m_SwapChainExtent;
 
     if (g_ProcessSimulation) g_ProcessSimulation(&input);
-
     drawFrame();
+
+    //Check close the window
+    if (glfwGetKey(VContext.m_Window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+    {
+        glfwSetWindowShouldClose(VContext.m_Window, GLFW_TRUE);
+    }
   }
 
   // Shutdown
@@ -839,12 +844,9 @@ void mainLoop()
 
 void run() 
 {
-  GLFWwindow* window;
   State = {};
-
-  initWindow(&window, WIDTH, HEIGHT);
+  GLFWwindow* window = CreateAppWindow(WIDTH, HEIGHT);
   initVulkan(window);
-
   mainLoop();
   cleanup();
 }

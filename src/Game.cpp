@@ -11,7 +11,7 @@ extern "C" __declspec(dllexport) void ProcessSimulation(const SimulationInput* i
     camera.FovRadians   = input->fovRadians;
     camera.AspectRatio  = input->aspectRatio;
     camera.NearPlane    = 0.1f;
-    camera.FarPlane     = 10.0f;
+    camera.FarPlane     = 1000.0f;
 
     UniformBufferObject ubo = {};
     ubo.model = glm::rotate(glm::mat4(1.0f), input->time * glm::radians(60.0f),

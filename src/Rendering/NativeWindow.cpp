@@ -3,13 +3,21 @@ static void framebufferResizeCallback(GLFWwindow *window, int width,
   g_FrameBufferResized = true;
 }
 
-void initWindow(GLFWwindow** window, int width, int height) 
+GLFWwindow* CreateAppWindow(int width, int height)
 {
-  glfwInit();
-  glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-  glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-  *window = glfwCreateWindow(width, height, "Vulkan", nullptr, nullptr);
-  glfwSetWindowUserPointer(*window, nullptr);
-  glfwSetFramebufferSizeCallback(*window, framebufferResizeCallback);
-}
+    glfwInit();
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
+    GLFWwindow* window = glfwCreateWindow(width, height, "Vulkan", nullptr, nullptr);
+    if (!window)
+    {
+        // Handle error: glfwCreateWindow failed
+        return nullptr;
+    }
+
+    glfwSetWindowUserPointer(window, nullptr);
+    glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
+
+    return window;
+}
