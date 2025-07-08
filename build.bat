@@ -3,10 +3,10 @@ setlocal EnableDelayedExpansion
 
 :: Paths
 set BuildDir=build
-set PCHHeader=common.h
-set PCHSource=src\common.cpp
-set PCHOut=%BuildDir%\common.pch
-set PCHObj=%BuildDir%\common.obj
+set PCHHeader=pch.h
+set PCHSource=src\pch.cpp
+set PCHOut=%BuildDir%\pch.pch
+set PCHObj=%BuildDir%\pch.obj
 
 :: Source files list
 set SourceFiles=src\main.cpp
@@ -87,7 +87,7 @@ for %%f in (%SourceFiles%) do (
     set "Src=%%f"
     set "Obj=%BuildDir%\%%~nf.obj"
     echo   !Src!
-    %Compiler% /c /Yu"common.h" %CFlags% /Fp"%PCHOut%" /Fo"!Obj!" "!Src!"
+    %Compiler% /c /Yu"pch.h" %CFlags% /Fp"%PCHOut%" /Fo"!Obj!" "!Src!"
     if errorlevel 1 goto BuildFailed
 )
 

@@ -1,4 +1,4 @@
-#include "common.h"
+#include "pch.h"
 
 #define VMA_IMPLEMENTATION
 #pragma warning(push)
@@ -6,7 +6,7 @@
 #pragma warning(disable : 4324)
 #pragma warning(disable:4189)
 #pragma warning(disable: 4127)
-#include "vk_mem_alloc.h"
+#include "Rendering/vk_mem_alloc.h"
 #pragma warning(pop)
 
 #define TINYOBJLOADER_IMPLEMENTATION

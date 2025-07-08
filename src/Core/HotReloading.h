@@ -1,5 +1,5 @@
 #pragma once
-#include "common.h"
+#include "pch.h"
 #include "shared.h"
 
 typedef void (*ProcessSimulationFn)(const GameState*);
