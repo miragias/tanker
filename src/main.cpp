@@ -1,5 +1,4 @@
-#include "Rendering/VulkanInternals.h"
-
+#include "common.h"
 #include "Globals.cpp"
 
 const std::vector<const char *> validationLayers = {"VK_LAYER_KHRONOS_validation"};

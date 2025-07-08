@@ -1,18 +1,12 @@
 @echo off
 setlocal EnableDelayedExpansion
 
-echo Building Game.dll...
-call "C:\Users\ioann\Programming\tanker\buildDll.bat"
-if errorlevel 1 goto BuildFailed
-
-:: Output folder for objs and exe
+:: Paths
 set BuildDir=build
-
-if not exist %BuildDir% mkdir %BuildDir%
-
-:: Compiler and linker
-set Compiler=cl
-set Linker=link
+set PCHHeader=common.h
+set PCHSource=src\common.cpp
+set PCHOut=%BuildDir%\common.pch
+set PCHObj=%BuildDir%\common.obj
 
 :: Source files list
 set SourceFiles=src\main.cpp
@@ -39,13 +33,28 @@ set CFlags=/nologo /EHsc /MP /Zi /MDd /W4 /std:c++17 /Zc:__cplusplus /wd4100 %In
 :: Linker flags
 set LFlags=/SUBSYSTEM:console /DEBUG %LibDirs% %Libs%
 
+if not exist %BuildDir% mkdir %BuildDir%
+
+:: Compiler and linker
+set Compiler=cl
+set Linker=link
+
+:: Compile precompiled header
+echo === Compiling precompiled header: %PCHHeader% ===
+%Compiler% /c /Yc"%PCHHeader%" /Fp"%PCHOut%" /Fo"%PCHObj%" %CFlags% "%PCHSource%"
+
+if errorlevel 1 goto BuildFailed
+echo Building Game.dll...
+call "C:\Users\ioann\Programming\tanker\buildDll.bat"
+if errorlevel 1 goto BuildFailed
+
 :: Simple approach: always compile (fast for single file projects)
 echo Compiling...
 for %%f in (%SourceFiles%) do (
     set "Src=%%f"
     set "Obj=%BuildDir%\%%~nf.obj"
     echo   !Src!
-    %Compiler% /c %CFlags% /Fo"!Obj!" "!Src!"
+    %Compiler% /c /Yu"common.h" %CFlags% /Fp"%PCHOut%" /Fo"!Obj!" "!Src!"
     if errorlevel 1 goto BuildFailed
 )
 

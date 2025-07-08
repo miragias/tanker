@@ -1,20 +1,4 @@
-#define IMGUI_DEFINE_MATH_OPERATORS
-#define GLFW_INCLUDE_VULKAN
-#include <Windows.h>
-#include <GLFW/glfw3.h>
-#include <optional>
-#include <vector>
-typedef uint32_t uint32;
-#include <filesystem>
-#include <iostream>
-
-int WIDTH = 2000;
-int HEIGHT = 1000;
-bool g_FrameBufferResized = false;
-bool g_SwapChainRebuild = false;
-int g_SwapChainResizeWidth = 0;
-int g_SwapChainResizeHeight = 0;
-const int NUMBER_OF_IMAGES = 2;
+#include "common.h"
 
 #define VMA_IMPLEMENTATION
 #pragma warning(push)
@@ -28,29 +12,17 @@ const int NUMBER_OF_IMAGES = 2;
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "Other/tiny_obj_loader.h"
 
-#include <algorithm>
-#include <cstdlib>
-#include <cstring>
-#include <fstream>
-#include <functional>
-#include <set>
-#include <stdexcept>
-#define GLM_ENABLE_EXPERIMENTAL
-#include <array>
-#include <glm/glm.hpp>
-#include <glm/gtx/hash.hpp>
-
-#define GLM_FORCE_RADIANS
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-using vec3 = glm::vec3;
-using vec2 = glm::vec2;
-
 #define STB_IMAGE_IMPLEMENTATION
 #include "Other/stb_image.h"
 
-#include <chrono>
+int WIDTH = 2000;
+int HEIGHT = 1000;
+bool g_FrameBufferResized = false;
+bool g_SwapChainRebuild = false;
+int g_SwapChainResizeWidth = 0;
+int g_SwapChainResizeHeight = 0;
+const int NUMBER_OF_IMAGES = 2;
+
 
 struct UniformBufferObject 
 {
