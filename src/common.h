@@ -31,6 +31,10 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/hash.hpp>
 
+//My stuff
+#include "Core/HotReloading.h"
+//
+
 // Types
 typedef uint32_t uint32;
 using vec3 = glm::vec3;

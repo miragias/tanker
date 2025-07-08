@@ -45,15 +45,15 @@ set TimestampFile=%BuildDir%\pch_timestamp.txt
 set LastTS=
 if exist "%TimestampFile%" (
     for /F "usebackq delims=" %%L in ("%TimestampFile%") do set "LastTS=%%L"
-    REM echo [PCH] Last recorded timestamp: !LastTS!
+    echo [PCH] Last recorded timestamp: !LastTS!
 ) else (
-    REM echo [PCH] No previous timestamp found.
+    echo [PCH] No previous timestamp found.
 )
 
 :: Grab current timestamps
 for %%F in ("%PCHHeader%") do set "CurrH=%%~tF"
 for %%F in ("%PCHSource%") do set "CurrC=%%~tF"
-REM echo [PCH] Current timestamps: header=!CurrH!, source=!CurrC!
+echo [PCH] Current timestamps: header=!CurrH!, source=!CurrC!
 set "CurrTS=!CurrH!|!CurrC!"
 
 :: Decide whether to rebuild
@@ -65,6 +65,7 @@ if not defined LastTS (
 ) else (
     echo [PCH] Skipping PCH rebuild
 )
+set RebuildPCH=1
 
 if defined RebuildPCH (
     echo [PCH] Compiling precompiled header: %PCHHeader%…
@@ -79,8 +80,6 @@ if defined RebuildPCH (
 echo Building Game.dll...
 call "C:\Users\ioann\Programming\tanker\buildDll.bat"
 if errorlevel 1 goto BuildFailed
-
-
 
 :: Simple approach: always compile (fast for single file projects)
 echo Compiling...

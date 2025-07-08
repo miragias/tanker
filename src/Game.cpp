@@ -6,7 +6,7 @@
 extern "C" __declspec(dllexport) void ProcessSimulation(const GameState* state)
 {
     UniformBufferObject ubo = {};
-    ubo.model = glm::rotate(glm::mat4(1.0f), state->time * glm::radians(60.0f),
+    ubo.model = glm::rotate(glm::mat4(1.0f), state->time * glm::radians(100.0f),
                             glm::vec3(0.0f, 1.0f, 0.0f));
 
     ubo.view = state->Cam.GetViewMatrix();

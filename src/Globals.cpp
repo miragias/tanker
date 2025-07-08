@@ -23,7 +23,6 @@ int g_SwapChainResizeWidth = 0;
 int g_SwapChainResizeHeight = 0;
 const int NUMBER_OF_IMAGES = 2;
 
-
 struct UniformBufferObject 
 {
   glm::mat4 model;
@@ -88,29 +87,6 @@ struct QueueFamilyIndices
   }
 };
 
-struct Camera
-{
-    glm::vec3 Position;
-    glm::vec3 Target;
-    glm::vec3 Up;
-    float     FovRadians;
-    float     AspectRatio;
-    float     NearPlane;
-    float     FarPlane;
-
-    glm::mat4 GetViewMatrix() const
-    {
-        return glm::lookAt(Position, Target, Up);
-    }
-
-    glm::mat4 GetProjectionMatrix() const
-    {
-        glm::mat4 proj = glm::perspective(FovRadians, AspectRatio, NearPlane, FarPlane);
-        proj[1][1] *= -1;
-        return proj;
-    }
-};
-
 struct VulkanSwapChain
 {
   VkSwapchainKHR m_SwapChain;
@@ -146,24 +122,10 @@ struct VulkanContext
   VkQueue m_PresentQueue;
 };
 
-
-struct GameState
-{
-  float gammaValue = 1;
-  float time;
-  uint32_t imageIndex;
-  float aspectRatio;
-  float fovRadians;
-  float gamma;
-  VkDevice device;
-  std::vector<VkDeviceMemory> uniformBuffersMemory;
-  VkExtent2D swapchainExtent;
-  Camera Cam;
-};
-
 GameState G_GameState;
-
 VulkanContext VContext;
+HotReloadData G_HotReloadData;
+
 VulkanSwapChain SwapChain;
 VkRenderPass m_RenderPass;
 VkDescriptorSetLayout g_DescriptorSetLayout;

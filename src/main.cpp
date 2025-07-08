@@ -1,5 +1,6 @@
 #include "common.h"
 #include "Globals.cpp"
+#include "Core/HotReloading.cpp"
 
 const std::vector<const char *> validationLayers = {"VK_LAYER_KHRONOS_validation"};
 const std::vector<const char *> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
@@ -282,7 +283,8 @@ void createTextureSampler() {
   }
 }
 
-void loadModel(bool second) {
+void loadModel(bool second) 
+{
   tinyobj::attrib_t attrib;
   std::vector<tinyobj::shape_t> shapes;
   std::vector<tinyobj::material_t> materials;
@@ -339,6 +341,7 @@ void loadModel(bool second) {
     }
   }
 }
+
 void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) {
   VkCommandBuffer commandBuffer = beginSingleTimeCommands();
 
@@ -397,13 +400,13 @@ void CreateVertexBuffers()
   vmaDestroyBuffer(m_Allocator, stagingBuffer, stagingAllocation);
 }
 
-void createIndexBuffer() {
+void createIndexBuffer() 
+{
   size_t dummyModelSize = sizeof(m_VertexIndices[0]) * m_VertexIndices.size();
   size_t dummyModelSize2 =
       sizeof(m_Vertex2Indices[0]) * m_Vertex2Indices.size();
 
-  // TODO:
-  VkDeviceSize bufferSize = 1000000000;
+  VkDeviceSize bufferSize = dummyModelSize + dummyModelSize2;
 
   VkBuffer stagingBuffer;
 
@@ -732,79 +735,6 @@ void initVulkan(GLFWwindow* window)
             float(SwapChain.m_SwapChainExtent.width), float(SwapChain.m_SwapChainExtent.height));
 }
 
-namespace fs = std::filesystem;
-typedef void (*ProcessSimulationFn)(const GameState*);
-HMODULE g_DLLHandle = nullptr;
-ProcessSimulationFn g_ProcessSimulation = nullptr;
-
-extern "C" void ProcessSimulation(const GameState* inp);
-
-bool LoadSimulationDLL(const char* path)
-{
-    CopyFileA(path, "build_dll/Game_temp.dll", FALSE);
-    g_DLLHandle = LoadLibraryA("build_dll/Game_temp.dll");
-    if (!g_DLLHandle)
-    {
-        MessageBoxA(0, "Failed to load DLL", "Error", MB_OK);
-        return false;
-    }
-
-    g_ProcessSimulation = (ProcessSimulationFn)GetProcAddress(g_DLLHandle, "ProcessSimulation");
-    if (!g_ProcessSimulation)
-    {
-        MessageBoxA(0, "Failed to find ProcessSimulation in DLL", "Error", MB_OK);
-        return false;
-    }
-
-    return true;
-}
-
-const char* g_DllPath = "build_dll/Game.dll";
-fs::file_time_type g_LastDLLWriteTime = fs::file_time_type::min();
-
-bool HasDLLChanged(const char* path)
-{
-    fs::file_time_type currentWriteTime = fs::last_write_time(path);
-
-    if (currentWriteTime != g_LastDLLWriteTime)
-    {
-        std::cout << "RELOADED DLL\n";
-        g_LastDLLWriteTime = currentWriteTime;
-        return true;
-    }
-
-    return false;
-}
-
-void UnloadSimulationDLL()
-{
-    if (g_DLLHandle)
-    {
-        FreeLibrary(g_DLLHandle);
-        g_DLLHandle = nullptr;
-        g_ProcessSimulation = nullptr;
-    }
-}
-
-void TryHotReloadDLL(const char* dllPath)
-{
-    if (HasDLLChanged(dllPath))
-    {
-        UnloadSimulationDLL();
-
-        // Wait a bit to avoid race with compiler/linker still writing the DLL
-        Sleep(100); // in ms
-
-        if (!LoadSimulationDLL(dllPath))
-        {
-            MessageBoxA(0, "Reload failed", "Hot Reload", MB_OK);
-        }
-        else
-        {
-            OutputDebugStringA("Hot Reloaded Simulation DLL\n");
-        }
-    }
-}
 
 void mainLoop() 
 { 
@@ -835,7 +765,7 @@ void mainLoop()
     glfwPollEvents();
 
     renderImgui(SwapChain.m_SwapChainExtent, G_GameState);
-    TryHotReloadDLL(g_DllPath);
+    TryHotReloadDLL(G_HotReloadData);
 
     static auto startTime = std::chrono::high_resolution_clock::now();
     auto currentTime = std::chrono::high_resolution_clock::now();
@@ -845,7 +775,7 @@ void mainLoop()
     G_GameState.time = time;
     G_GameState.imageIndex = m_ImageIndex;
 
-    if (g_ProcessSimulation) g_ProcessSimulation(&G_GameState);
+    if (G_HotReloadData.ProcessSimulation) G_HotReloadData.ProcessSimulation(&G_GameState);
     drawFrame();
 
     //Check close the window
