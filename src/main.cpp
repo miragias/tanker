@@ -2,9 +2,6 @@
 #include "Globals.cpp"
 #include "Core/HotReloading.cpp"
 
-const std::vector<const char *> validationLayers = {"VK_LAYER_KHRONOS_validation"};
-const std::vector<const char *> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
-
 #include "Core/CoreIO.cpp"
 #include "Rendering/VulkanCommon.cpp"
 #include "Rendering/VulkanSetup.cpp"

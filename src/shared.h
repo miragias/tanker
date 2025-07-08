@@ -1,9 +1,6 @@
 #pragma once
 
-#include <vulkan/vulkan.h>       // For VkDevice, VkDeviceMemory, VkExtent2D
-#include <vector>                // For std::vector
-#include <glm/glm.hpp>           // For glm::vec3, glm::mat4
-#include <glm/gtc/matrix_transform.hpp> // For glm::lookAt, glm::perspective
+#include "common.h"
 
 struct Camera
 {
