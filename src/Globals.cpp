@@ -23,14 +23,6 @@ int g_SwapChainResizeWidth = 0;
 int g_SwapChainResizeHeight = 0;
 const int NUMBER_OF_IMAGES = 2;
 
-struct UniformBufferObject 
-{
-  glm::mat4 model;
-  glm::mat4 view;
-  glm::mat4 proj;
-  float gamma;
-};
-
 struct Vertex 
 {
   vec3 pos;

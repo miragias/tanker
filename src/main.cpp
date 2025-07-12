@@ -1,4 +1,5 @@
 #include "pch.h"
+#include "shared.h"
 #include "Globals.cpp"
 #include "Core/HotReloading.cpp"
 

@@ -2,7 +2,7 @@
 setlocal EnableDelayedExpansion
 
 :: Output folder for objs and dll
-set BuildDir=build_dll
+set BuildDir=build
 
 if not exist %BuildDir% mkdir %BuildDir%
 

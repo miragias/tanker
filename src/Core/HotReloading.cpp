@@ -1,11 +1,11 @@
 #include "Core/HotReloading.h"
 
-const char* DLL_PATH = "build_dll/Game.dll";
+const char* DLL_PATH = "build/Game.dll";
 
 bool LoadSimulationDLL(HotReloadData& hotReload)
 {
-    CopyFileA(DLL_PATH, "build_dll/Game_temp.dll", FALSE);
-    hotReload.DllHandle = LoadLibraryA("build_dll/Game_temp.dll");
+    CopyFileA(DLL_PATH, "build/Game_temp.dll", FALSE);
+    hotReload.DllHandle = LoadLibraryA("build/Game_temp.dll");
     if (!hotReload.DllHandle)
     {
         MessageBoxA(0, "Failed to load DLL", "Error", MB_OK);

@@ -37,3 +37,11 @@ struct GameState
   VkExtent2D swapchainExtent;
   Camera Cam;
 };
+
+struct UniformBufferObject 
+{
+  glm::mat4 model;
+  glm::mat4 view;
+  glm::mat4 proj;
+  float gamma;
+};

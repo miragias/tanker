@@ -1,7 +1,7 @@
 #include "pch.h"
+#include "shared.h"
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#include "Globals.cpp"
 
 extern "C" __declspec(dllexport) void ProcessSimulation(const GameState* state)
 {
