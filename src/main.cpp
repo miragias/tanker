@@ -196,25 +196,21 @@ void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width,
   endSingleTimeCommands(commandBuffer);
 }
 
-void createTextureImage() 
+void loadTextureToGpuMemory(const char *filePath)
 {
-  for (int i = 0; i < NUMBER_OF_IMAGES; ++i) {
     int texWidth, texHeight, texChannels;
-    stbi_uc *pixels = stbi_load(TEXTURE_PATH.c_str(), &texWidth, &texHeight,
-                                &texChannels, STBI_rgb_alpha);
+    stbi_uc *pixels = stbi_load(filePath, &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
     VkDeviceSize imageSize = texWidth * texHeight * 4;
 
-    if (!pixels) {
-      throw std::runtime_error("failed to load texture image!");
-    }
+    if (!pixels)
+        throw std::runtime_error("failed to load texture image!");
 
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingBufferMemory;
 
     CreateBuffer(VContext.m_Device, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                      VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                  stagingBuffer, stagingBufferMemory);
+                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                 stagingBuffer, stagingBufferMemory);
 
     void *data;
     vkMapMemory(VContext.m_Device, stagingBufferMemory, 0, imageSize, 0, &data);
@@ -226,23 +222,23 @@ void createTextureImage()
     CreateImage(texWidth, texHeight, VK_FORMAT_R8G8B8A8_UNORM,
                 VK_IMAGE_TILING_OPTIMAL,
                 VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &m_TextureImage[i],
-                &m_TextureImageMemory[i]);
+                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &m_TextureImage[0],
+                &m_TextureImageMemory[0]);
 
-    transitionImageLayout(m_TextureImage[i], VK_FORMAT_R8G8B8A8_UNORM,
+    transitionImageLayout(m_TextureImage[0], VK_FORMAT_R8G8B8A8_UNORM,
                           VK_IMAGE_LAYOUT_UNDEFINED,
                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    copyBufferToImage(stagingBuffer, m_TextureImage[i],
+
+    copyBufferToImage(stagingBuffer, m_TextureImage[0],
                       static_cast<uint32_t>(texWidth),
                       static_cast<uint32_t>(texHeight));
-    transitionImageLayout(m_TextureImage[i], VK_FORMAT_R8G8B8A8_UNORM,
+
+    transitionImageLayout(m_TextureImage[0], VK_FORMAT_R8G8B8A8_UNORM,
                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                           VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
     vkDestroyBuffer(VContext.m_Device, stagingBuffer, nullptr);
-
     vkFreeMemory(VContext.m_Device, stagingBufferMemory, nullptr);
-  }
 }
 
 void createTextureImageView(VkDevice device) 
@@ -251,6 +247,8 @@ void createTextureImageView(VkDevice device)
     m_TextureImageView[i] =
         CreateImageView(m_TextureImage[i], VK_FORMAT_R8G8B8A8_UNORM,
                         VK_IMAGE_ASPECT_COLOR_BIT, device);
+    //TODO:
+    break;
   }
 }
 
@@ -715,7 +713,7 @@ void initVulkan(GLFWwindow* window)
   createDescriptorSetLayout(VContext.m_Device, &g_DescriptorSetLayout);
   createCommandPool(VContext.m_PhysicalDevice, VContext.m_Surface, VContext.m_Device);
 
-  createTextureImage();
+  loadTextureToGpuMemory(TEXTURE_PATH.c_str());
   createTextureImageView(VContext.m_Device);
   createTextureSampler();
 

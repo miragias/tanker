@@ -124,11 +124,14 @@ VkDescriptorSetLayout g_DescriptorSetLayout;
 std::vector<VkDescriptorSet> m_DescriptorSets;
 VkDescriptorPool m_DescriptorPool;
 std::vector<VkBuffer> m_UniformBuffers;
-VkImage m_TextureImage[NUMBER_OF_IMAGES];
+
+
 VkDeviceMemory m_TextureImageMemory[NUMBER_OF_IMAGES];
+VkImage m_TextureImage[NUMBER_OF_IMAGES];
 VkImageView m_TextureImageView[NUMBER_OF_IMAGES];
-VkCommandPool m_CommandPool;
 VkSampler m_TextureSampler[NUMBER_OF_IMAGES];
+
+VkCommandPool m_CommandPool;
 std::vector<VkCommandBuffer> m_CommandBuffers;
 std::array<VkClearValue, 2> m_ClearValues = {};
 VkPipelineLayout m_PipelineLayout;
