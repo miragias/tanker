@@ -59,6 +59,52 @@ VmaAllocator m_Allocator;
 
 size_t m_CurrentFrame = 0;
 
+VkCommandBuffer beginSingleTimeCommands() {
+  VkCommandBufferAllocateInfo allocInfo = {};
+  allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+  allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+  allocInfo.commandPool = m_CommandPool;
+  allocInfo.commandBufferCount = 1;
+
+  VkCommandBuffer commandBuffer;
+  vkAllocateCommandBuffers(VContext.m_Device, &allocInfo, &commandBuffer);
+
+  VkCommandBufferBeginInfo beginInfo = {};
+  beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+  beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+  vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+  return commandBuffer;
+}
+
+void endSingleTimeCommands(VkCommandBuffer commandBuffer) {
+  vkEndCommandBuffer(commandBuffer);
+
+  VkSubmitInfo submitInfo = {};
+  submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+  submitInfo.commandBufferCount = 1;
+  submitInfo.pCommandBuffers = &commandBuffer;
+
+  vkQueueSubmit(VContext.m_GraphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+  vkQueueWaitIdle(VContext.m_GraphicsQueue);
+
+  vkFreeCommandBuffers(VContext.m_Device, m_CommandPool, 1, &commandBuffer);
+}
+
+
+
+void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) 
+{
+  VkCommandBuffer commandBuffer = beginSingleTimeCommands();
+
+  VkBufferCopy copyRegion = {};
+  copyRegion.size = size;
+  vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
+
+  endSingleTimeCommands(commandBuffer);
+}
+
 void cleanupSwapChain(VulkanContext vulkanContext) 
 {
   for (size_t i = 0; i < SwapChain.m_SwapChainFrameBuffers.size(); i++) 
@@ -94,40 +140,6 @@ bool hasStencilComponent(VkFormat format) {
   return format == VK_FORMAT_D32_SFLOAT_S8_UINT ||
           format == VK_FORMAT_D24_UNORM_S8_UINT;
 }
-
-VkCommandBuffer beginSingleTimeCommands() {
-  VkCommandBufferAllocateInfo allocInfo = {};
-  allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-  allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-  allocInfo.commandPool = m_CommandPool;
-  allocInfo.commandBufferCount = 1;
-
-  VkCommandBuffer commandBuffer;
-  vkAllocateCommandBuffers(VContext.m_Device, &allocInfo, &commandBuffer);
-
-  VkCommandBufferBeginInfo beginInfo = {};
-  beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-  beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-  vkBeginCommandBuffer(commandBuffer, &beginInfo);
-
-  return commandBuffer;
-}
-
-void endSingleTimeCommands(VkCommandBuffer commandBuffer) {
-  vkEndCommandBuffer(commandBuffer);
-
-  VkSubmitInfo submitInfo = {};
-  submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-  submitInfo.commandBufferCount = 1;
-  submitInfo.pCommandBuffers = &commandBuffer;
-
-  vkQueueSubmit(VContext.m_GraphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-  vkQueueWaitIdle(VContext.m_GraphicsQueue);
-
-  vkFreeCommandBuffers(VContext.m_Device, m_CommandPool, 1, &commandBuffer);
-}
-
 
 // TODO(JohnMir): What does this do?
 void transitionImageLayout(VkImage image, VkFormat format,
@@ -292,6 +304,41 @@ void FillSpriteVerticesAndIndices(std::vector<Vertex>& vertices, std::vector<uin
     indices.push_back(baseIndex + 0);
 }
 
+void UploadDataToGpuBuffer( void* srcData, VkDeviceSize size, VkBufferUsageFlags usage,
+    VkBuffer& outBuffer, VkDeviceMemory& outBufferMemory)
+{
+    VkBuffer stagingBuffer;
+    VkDeviceMemory stagingBufferMemory;
+
+    // 1. Create staging buffer
+    CreateBuffer(
+        VContext.m_Device,
+        size,
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        stagingBuffer,
+        stagingBufferMemory);
+
+    // 2. Copy CPU data to staging buffer
+    void* mappedData;
+    vkMapMemory(VContext.m_Device, stagingBufferMemory, 0, size, 0, &mappedData);
+    memcpy(mappedData, srcData, static_cast<size_t>(size));
+    vkUnmapMemory(VContext.m_Device, stagingBufferMemory);
+
+    // 3. Create GPU-local buffer
+    CreateBuffer( VContext.m_Device, size, usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        outBuffer,
+        outBufferMemory);
+
+    // 4. Copy from staging to GPU buffer
+    CopyBuffer(stagingBuffer, outBuffer, size);
+
+    // 5. Clean up staging buffer
+    vkDestroyBuffer(VContext.m_Device, stagingBuffer, nullptr);
+    vkFreeMemory(VContext.m_Device, stagingBufferMemory, nullptr);
+}
+
 SpriteList LoadSpriteListIntoGpuMemory(StartingSpritePaths spritePaths)
 {
   SpriteList spriteListToReturn = {};
@@ -310,16 +357,33 @@ SpriteList LoadSpriteListIntoGpuMemory(StartingSpritePaths spritePaths)
     float height = 100.0f;
     FillSpriteVerticesAndIndices(sprite.Vertices, sprite.Indices, x, y, width, height);
 
-    //Ubo creation
-    VkDeviceSize bufferSize = sizeof(UniformBufferObject);
+    VkDeviceSize vertexBufferSize = sizeof(Vertex) * sprite.Vertices.size();
+    VkDeviceSize indexBufferSize = sizeof(uint32_t) * sprite.Indices.size();
 
+    UploadDataToGpuBuffer(
+        sprite.Vertices.data(),
+        vertexBufferSize,
+        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+        sprite.SpriteVertexBuffer,
+        sprite.VertexBufferMemory);
+
+    UploadDataToGpuBuffer(
+        sprite.Indices.data(),
+        indexBufferSize,
+        VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+        sprite.SpriteIndexBuffer,
+        sprite.IndexBufferMemory);
+
+    // Create uniform buffer (as you already do)
+    VkDeviceSize uniformBufferSize = sizeof(UniformBufferObject);
     CreateBuffer(VContext.m_Device,
-      bufferSize,
+      uniformBufferSize,
       VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
       sprite.UniformBuffer,
       sprite.UniformBufferMemory
     );
+
     spriteListToReturn.push_back(sprite);
   }
   return spriteListToReturn;
@@ -385,17 +449,6 @@ void loadModel(bool second)
   }
 }
 
-void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) {
-  VkCommandBuffer commandBuffer = beginSingleTimeCommands();
-
-  VkBufferCopy copyRegion = {};
-  copyRegion.size = size;
-  vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
-
-  endSingleTimeCommands(commandBuffer);
-}
-
-
 
 void CreateVertexBuffersSprites(const std::vector<Sprite>& sprites)
 {
@@ -447,7 +500,7 @@ void CreateVertexBuffersSprites(const std::vector<Sprite>& sprites)
     vmaCreateBuffer(m_Allocator, &vertexBufferInfo, &vertexAllocInfo, &m_VertexBuffer, &m_VertexBufferAllocation, nullptr);
 
     // Copy staging buffer to vertex buffer
-    copyBuffer(stagingBuffer, m_VertexBuffer, bufferSize);
+    CopyBuffer(stagingBuffer, m_VertexBuffer, bufferSize);
 
     // Cleanup
     vmaDestroyBuffer(m_Allocator, stagingBuffer, stagingAllocation);
@@ -502,7 +555,7 @@ void CreateIndexBuffersSprites(const std::vector<Sprite>& sprites)
     vmaCreateBuffer(m_Allocator, &indexBufferInfo, &indexAllocInfo, &m_IndexBuffer, &m_IndexBufferAllocation, nullptr);
 
     // Copy staging to GPU index buffer
-    copyBuffer(stagingBuffer, m_IndexBuffer, bufferSize);
+    CopyBuffer(stagingBuffer, m_IndexBuffer, bufferSize);
 
     // Cleanup staging
     vmaDestroyBuffer(m_Allocator, stagingBuffer, stagingAllocation);
@@ -556,7 +609,7 @@ void CreateVertexBuffers()
                   &m_VertexBuffer, &m_VertexBufferAllocation, nullptr);
 
   // Fill the buffer
-  copyBuffer(stagingBuffer, m_VertexBuffer, bufferSize);
+  CopyBuffer(stagingBuffer, m_VertexBuffer, bufferSize);
 
   // Cleanup the staging buffer
   vmaDestroyBuffer(m_Allocator, stagingBuffer, stagingAllocation);
@@ -601,7 +654,7 @@ void createIndexBuffer()
   vmaCreateBuffer(m_Allocator, &indexBufferInfo, &indexAllocInfo,
                   &m_IndexBuffer, &m_IndexBufferAllocation, nullptr);
 
-  copyBuffer(stagingBuffer, m_IndexBuffer, bufferSize);
+  CopyBuffer(stagingBuffer, m_IndexBuffer, bufferSize);
 
   vmaDestroyBuffer(m_Allocator, stagingBuffer, stagingAllocation);
 }

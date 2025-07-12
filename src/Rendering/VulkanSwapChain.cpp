@@ -248,6 +248,7 @@ void CreateSpriteDescriptorSets(VkDevice device, SpriteList& spriteList)
       descriptorWrites[1].pImageInfo = &imageInfo;
 
       vkUpdateDescriptorSets(VContext.m_Device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+      sprite.DescriptorSet = m_DescriptorSets[i];
   }
 }
 
@@ -568,7 +569,7 @@ void createDescriptorSetLayout(VkDevice& device, VkDescriptorSetLayout* outDescr
 
   VkDescriptorSetLayoutBinding samplerLayoutBinding = {};
   samplerLayoutBinding.binding = 1;
-  samplerLayoutBinding.descriptorCount = 2;
+  samplerLayoutBinding.descriptorCount = 1;
   samplerLayoutBinding.descriptorType =
       VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
   samplerLayoutBinding.pImmutableSamplers = nullptr;
