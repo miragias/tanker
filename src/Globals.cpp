@@ -21,7 +21,16 @@ bool g_FrameBufferResized = false;
 bool g_SwapChainRebuild = false;
 int g_SwapChainResizeWidth = 0;
 int g_SwapChainResizeHeight = 0;
-const int NUMBER_OF_IMAGES = 2;
+const int SWAPCHAIN_IMAGE_NUM = 2;
+const char* SPRITES_PATH = "../sprites.txt";
+
+struct Sprite{
+  VkDeviceMemory TextureMemory;
+  VkImage TextureImage;
+  VkImageView TextureImageView;
+  VkSampler TextureSampler;
+  char* OriginalFilePath;
+};
 
 struct Vertex 
 {
@@ -84,15 +93,17 @@ struct VulkanSwapChain
   VkSwapchainKHR m_SwapChain;
   VkFormat m_SwapChainImageFormat;
   VkExtent2D m_SwapChainExtent;
+
   std::vector<VkImage> m_SwapChainImages;
   std::vector<VkImageView> m_SwapChainImageViews;
   std::vector<VkFramebuffer> m_SwapChainFrameBuffers;
+  VkSampler SwapChainSampler;
 
-  //TODO(JohnMir): Bundle them
   VkImage m_DepthImage;
   VkDeviceMemory m_DepthImageMemory;
   VkImageView m_DepthImageView;
 };
+std::vector<VkDescriptorSet> m_DescriptorSets;
 
 struct SwapChainSupportDetails 
 {
@@ -114,22 +125,20 @@ struct VulkanContext
   VkQueue m_PresentQueue;
 };
 
+typedef std::vector<Sprite> SpriteList;
+typedef std::vector<char*> StartingSpritePaths;
+
 GameState G_GameState;
 VulkanContext VContext;
 HotReloadData G_HotReloadData;
+SpriteList G_GameSprites= {};
+StartingSpritePaths G_StartingSpritePaths;
 
 VulkanSwapChain SwapChain;
 VkRenderPass m_RenderPass;
 VkDescriptorSetLayout g_DescriptorSetLayout;
-std::vector<VkDescriptorSet> m_DescriptorSets;
 VkDescriptorPool m_DescriptorPool;
 std::vector<VkBuffer> m_UniformBuffers;
-
-
-VkDeviceMemory m_TextureImageMemory[NUMBER_OF_IMAGES];
-VkImage m_TextureImage[NUMBER_OF_IMAGES];
-VkImageView m_TextureImageView[NUMBER_OF_IMAGES];
-VkSampler m_TextureSampler[NUMBER_OF_IMAGES];
 
 VkCommandPool m_CommandPool;
 std::vector<VkCommandBuffer> m_CommandBuffers;

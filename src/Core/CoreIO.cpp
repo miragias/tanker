@@ -14,4 +14,25 @@ static std::vector<char> readFile(const std::string &filename)
   return buffer;
 }
 
+std::vector<char*> LoadFileList(const char* filePath)
+{
+    std::vector<char*> fileList;
 
+    std::ifstream file(filePath);
+    if (!file.is_open())
+    {
+        throw std::runtime_error("Failed to open file list: " + std::string(filePath));
+    }
+
+    std::string line;
+    while (std::getline(file, line))
+    {
+        if (!line.empty())
+        {
+            // strdup allocates memory, you must free() each char* later
+            fileList.push_back(_strdup(line.c_str()));
+        }
+    }
+
+    return fileList;
+}

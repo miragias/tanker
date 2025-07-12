@@ -196,7 +196,7 @@ void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width,
   endSingleTimeCommands(commandBuffer);
 }
 
-void loadTextureToGpuMemory(const char *filePath)
+void LoadTextureToGpuMemory(const char *filePath, VkImage *image, VkDeviceMemory *memory)
 {
     int texWidth, texHeight, texChannels;
     stbi_uc *pixels = stbi_load(filePath, &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
@@ -222,18 +222,18 @@ void loadTextureToGpuMemory(const char *filePath)
     CreateImage(texWidth, texHeight, VK_FORMAT_R8G8B8A8_UNORM,
                 VK_IMAGE_TILING_OPTIMAL,
                 VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &m_TextureImage[0],
-                &m_TextureImageMemory[0]);
+                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, image,
+                memory);
 
-    transitionImageLayout(m_TextureImage[0], VK_FORMAT_R8G8B8A8_UNORM,
+    transitionImageLayout(*image, VK_FORMAT_R8G8B8A8_UNORM,
                           VK_IMAGE_LAYOUT_UNDEFINED,
                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
-    copyBufferToImage(stagingBuffer, m_TextureImage[0],
+    copyBufferToImage(stagingBuffer, *image,
                       static_cast<uint32_t>(texWidth),
                       static_cast<uint32_t>(texHeight));
 
-    transitionImageLayout(m_TextureImage[0], VK_FORMAT_R8G8B8A8_UNORM,
+    transitionImageLayout(*image, VK_FORMAT_R8G8B8A8_UNORM,
                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                           VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
@@ -241,18 +241,13 @@ void loadTextureToGpuMemory(const char *filePath)
     vkFreeMemory(VContext.m_Device, stagingBufferMemory, nullptr);
 }
 
-void createTextureImageView(VkDevice device) 
+void CreateTextureImageView(VkDevice& device, VkImage& image, VkImageView* imageView) 
 {
-  for (int i = 0; i < NUMBER_OF_IMAGES; i++) {
-    m_TextureImageView[i] =
-        CreateImageView(m_TextureImage[i], VK_FORMAT_R8G8B8A8_UNORM,
-                        VK_IMAGE_ASPECT_COLOR_BIT, device);
-    //TODO:
-    break;
-  }
+  *imageView = CreateImageView(image, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT, device);
 }
 
-void createTextureSampler() {
+void CreateTextureSampler(VkSampler *outTextureSampler) 
+{
   VkSamplerCreateInfo samplerInfo = {};
   samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
   samplerInfo.magFilter = VK_FILTER_LINEAR;
@@ -271,13 +266,28 @@ void createTextureSampler() {
   samplerInfo.minLod = 0.0f;
   samplerInfo.maxLod = 0.0f;
 
-  for (int i = 0; i < NUMBER_OF_IMAGES; ++i) {
-    if (vkCreateSampler(VContext.m_Device, &samplerInfo, nullptr,
-                        &m_TextureSampler[i]) != VK_SUCCESS) {
-      throw std::runtime_error("failed to create texture sampler!");
-    }
+  if (vkCreateSampler(VContext.m_Device, &samplerInfo, nullptr, outTextureSampler) != VK_SUCCESS) 
+  {
+    throw std::runtime_error("failed to create texture sampler!");
   }
 }
+
+
+SpriteList LoadSpriteListIntoGpuMemory(StartingSpritePaths spritePaths)
+{
+  SpriteList spriteListToReturn = {};
+  for(auto spritePath : spritePaths)
+  {
+    Sprite sprite = {};
+    sprite.OriginalFilePath = spritePath;
+    LoadTextureToGpuMemory(sprite.OriginalFilePath, &sprite.TextureImage, &sprite.TextureMemory);
+    CreateTextureImageView(VContext.m_Device, sprite.TextureImage, &sprite.TextureImageView);
+    CreateTextureSampler(&sprite.TextureSampler);
+    spriteListToReturn.push_back(sprite);
+  }
+  return spriteListToReturn;
+}
+
 
 void loadModel(bool second) 
 {
@@ -541,14 +551,13 @@ void cleanup()
 {
   cleanupSwapChain(VContext);
 
-  for (size_t i = 0; i < NUMBER_OF_IMAGES; ++i) 
+  //Swapchain images and sampler
+  for (size_t i = 0; i < SWAPCHAIN_IMAGE_NUM; ++i) 
   {
-    vkDestroySampler(VContext.m_Device, m_TextureSampler[i], nullptr);
-
-    vkDestroyImageView(VContext.m_Device, m_TextureImageView[i], nullptr);
-    vkDestroyImage(VContext.m_Device, m_TextureImage[i], nullptr);
-    vkFreeMemory(VContext.m_Device, m_TextureImageMemory[i], nullptr);
+    vkDestroyImageView(VContext.m_Device, SwapChain.m_SwapChainImageViews[i], nullptr);
+    vkDestroyImage(VContext.m_Device, SwapChain.m_SwapChainImages[i], nullptr);
   }
+  vkDestroySampler(VContext.m_Device, SwapChain.SwapChainSampler, nullptr);
 
   vkDestroyImage(VContext.m_Device, SwapChain.m_DepthImage, nullptr);
   vkFreeMemory(VContext.m_Device, SwapChain.m_DepthImageMemory, nullptr);
@@ -713,15 +722,13 @@ void initVulkan(GLFWwindow* window)
   createDescriptorSetLayout(VContext.m_Device, &g_DescriptorSetLayout);
   createCommandPool(VContext.m_PhysicalDevice, VContext.m_Surface, VContext.m_Device);
 
-  loadTextureToGpuMemory(TEXTURE_PATH.c_str());
-  createTextureImageView(VContext.m_Device);
-  createTextureSampler();
+  G_GameSprites = LoadSpriteListIntoGpuMemory(LoadFileList(SPRITES_PATH));
 
-  loadModel(false);
-  loadModel(true);
+  //loadModel(false);
+  //loadModel(true);
 
-  CreateVertexBuffers();
-  createIndexBuffer();
+  //CreateVertexBuffers();
+  //createIndexBuffer();
 
   SwapChain = CreateSwapChain(VContext);
 

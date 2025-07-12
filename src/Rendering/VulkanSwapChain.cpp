@@ -193,7 +193,9 @@ void createDescriptorPool(VkDevice device, std::vector<VkImage>& swapChainImages
   }
 }
 
-void createDescriptorSets(VkDevice device, std::vector<VkImage>& swapChainImages, VkDescriptorPool& descriptorSetLayout) 
+void createDescriptorSets(VkDevice device, std::vector<VkImage>& swapChainImages,
+                          VkDescriptorPool& descriptorSetLayout, std::vector<VkImageView>& swapChainImageViews,
+                          VkSampler& sampler) 
 {
   std::vector<VkDescriptorSetLayout> layouts(swapChainImages.size(), g_DescriptorSetLayout);
   VkDescriptorSetAllocateInfo allocInfo = {};
@@ -209,7 +211,8 @@ void createDescriptorSets(VkDevice device, std::vector<VkImage>& swapChainImages
     throw std::runtime_error("failed to allocate descriptor sets!");
   }
 
-  for (size_t i = 0; i < SwapChain.m_SwapChainImages.size(); i++) {
+  for (size_t i = 0; i < SwapChain.m_SwapChainImages.size(); i++) 
+  {
     VkDescriptorBufferInfo bufferInfo = {};
     bufferInfo.buffer = m_UniformBuffers[i];
     bufferInfo.offset = 0;
@@ -217,11 +220,11 @@ void createDescriptorSets(VkDevice device, std::vector<VkImage>& swapChainImages
 
     VkDescriptorImageInfo imageInfo[2] = {};
     imageInfo[0].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    imageInfo[0].imageView = m_TextureImageView[0];
-    imageInfo[0].sampler = m_TextureSampler[0];
+    imageInfo[0].imageView = swapChainImageViews[0];
+    imageInfo[0].sampler = sampler;
     imageInfo[1].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    imageInfo[1].imageView = m_TextureImageView[1];
-    imageInfo[1].sampler = m_TextureSampler[1];
+    imageInfo[1].imageView = swapChainImageViews[1];
+    imageInfo[1].sampler = sampler;
 
     std::array<VkWriteDescriptorSet, 2> descriptorWrites = {};
 
@@ -286,7 +289,7 @@ void createUniformBuffers(VkDevice device)
 }
 
 void createDepthResources(VkDevice device, VkExtent2D swapChainExtent, VkImage* depthImage,
-                          VkDeviceMemory* depthImageMemory, VkImageView* depthImageView) 
+                          VkDeviceMemory* depthImageMemory, VkImageView& depthImageView) 
 {
   VkFormat depthFormat = findDepthFormat();
 
@@ -294,7 +297,7 @@ void createDepthResources(VkDevice device, VkExtent2D swapChainExtent, VkImage* 
       VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
       VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, depthImage, depthImageMemory);
 
-  *depthImageView = CreateImageView(*depthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, device);
+  depthImageView = CreateImageView(*depthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, device);
 }
 
 void createGraphicsPipeline(VkExtent2D swapChainExtent) 
@@ -597,7 +600,31 @@ void CreateSwapChainImageViews(VkDevice device, std::vector<VkImageView>* swapCh
                         VK_IMAGE_ASPECT_COLOR_BIT, device);
   }
 }
+void CreateSwapChainSampler(VkSampler *outTextureSampler) 
+{
+  VkSamplerCreateInfo samplerInfo = {};
+  samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+  samplerInfo.magFilter = VK_FILTER_LINEAR;
+  samplerInfo.minFilter = VK_FILTER_LINEAR;
+  samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+  samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+  samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+  samplerInfo.anisotropyEnable = VK_TRUE;
+  samplerInfo.maxAnisotropy = 1;
+  samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+  samplerInfo.unnormalizedCoordinates = VK_FALSE;
+  samplerInfo.compareEnable = VK_FALSE;
+  samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+  samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+  samplerInfo.mipLodBias = 0.0f;
+  samplerInfo.minLod = 0.0f;
+  samplerInfo.maxLod = 0.0f;
 
+  if (vkCreateSampler(VContext.m_Device, &samplerInfo, nullptr, outTextureSampler) != VK_SUCCESS) 
+  {
+    throw std::runtime_error("failed to create texture sampler!");
+  }
+}
                                                                     ////Probably bind render pass with uniform etc 
 //TODO(JohnMir): Use pointers with malloc/free for these main stuff.
 //TODO(JohnMir): Rename to also create render pass and out it here (or use it as global I guess)
@@ -612,16 +639,18 @@ VulkanSwapChain CreateSwapChain(VulkanContext vulkanContext)
   VkImage depthImage;
   VkDeviceMemory depthImageMemory;
   VkImageView depthImageView;
+  VkSampler swapChainSampler;
 
+  CreateSwapChainSampler(&swapChainSampler);
   CreateVulkanSwapChain(vulkanContext, &vkSwapChain, &swapChainImages, &swapChainExtent, &swapChainImageFormat);
   CreateSwapChainImageViews(vulkanContext.m_Device, &swapChainImageViews, swapChainImages, swapChainImageFormat);
   createRenderPass(vulkanContext.m_Device, swapChainImageFormat, &m_RenderPass);
   createGraphicsPipeline(swapChainExtent);
-  createDepthResources(vulkanContext.m_Device, swapChainExtent, &depthImage, &depthImageMemory, &depthImageView);
+  createDepthResources(vulkanContext.m_Device, swapChainExtent, &depthImage, &depthImageMemory, depthImageView);
   createFramebuffers(vulkanContext.m_Device, swapChainExtent, swapChainImageViews, &swapChainFrameBuffers, m_RenderPass, depthImageView);
   createUniformBuffers(vulkanContext.m_Device);
   createDescriptorPool(vulkanContext.m_Device, swapChainImages, &m_DescriptorPool);
-  createDescriptorSets(vulkanContext.m_Device, swapChainImages, m_DescriptorPool);
+  createDescriptorSets(vulkanContext.m_Device, swapChainImages, m_DescriptorPool, swapChainImageViews, swapChainSampler);
   createCommandBuffers(vulkanContext.m_Device, swapChainFrameBuffers.size());
 
   VulkanSwapChain swapChain = {};
