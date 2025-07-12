@@ -24,14 +24,6 @@ int g_SwapChainResizeHeight = 0;
 const int SWAPCHAIN_IMAGE_NUM = 2;
 const char* SPRITES_PATH = "../sprites.txt";
 
-struct Sprite{
-  VkDeviceMemory TextureMemory;
-  VkImage TextureImage;
-  VkImageView TextureImageView;
-  VkSampler TextureSampler;
-  char* OriginalFilePath;
-};
-
 struct Vertex 
 {
   vec3 pos;
@@ -75,6 +67,16 @@ struct Vertex
 
     return attributeDescriptions;
   }
+};
+
+struct Sprite{
+  VkDeviceMemory TextureMemory;
+  VkImage TextureImage;
+  VkImageView TextureImageView;
+  VkSampler TextureSampler;
+  char* OriginalFilePath;
+  std::vector<Vertex> Vertices;    // Vertex is your vertex struct
+  std::vector<uint32_t> Indices;   // Indices for this sprite
 };
 
 struct QueueFamilyIndices 

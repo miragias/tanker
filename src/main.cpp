@@ -272,6 +272,25 @@ void CreateTextureSampler(VkSampler *outTextureSampler)
   }
 }
 
+void FillSpriteVerticesAndIndices(std::vector<Vertex>& vertices, std::vector<uint32_t>& indices, float x, float y, float width, float height)
+{
+    // Define 4 vertices of the quad (z = 0), white color, proper UVs
+    vertices.push_back({ {x,          y,           0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f} }); // bottom-left
+    vertices.push_back({ {x + width,  y,           0.0f}, {1.0f, 1.0f, 1.0f}, {1.0f, 0.0f} }); // bottom-right
+    vertices.push_back({ {x + width,  y + height,  0.0f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f} }); // top-right
+    vertices.push_back({ {x,          y + height,  0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f} }); // top-left
+
+    uint32_t baseIndex = static_cast<uint32_t>(vertices.size()) - 4; // Index of first vertex of this quad
+
+    // Two triangles (6 indices) to form the quad
+    indices.push_back(baseIndex + 0);
+    indices.push_back(baseIndex + 1);
+    indices.push_back(baseIndex + 2);
+
+    indices.push_back(baseIndex + 2);
+    indices.push_back(baseIndex + 3);
+    indices.push_back(baseIndex + 0);
+}
 
 SpriteList LoadSpriteListIntoGpuMemory(StartingSpritePaths spritePaths)
 {
@@ -280,10 +299,18 @@ SpriteList LoadSpriteListIntoGpuMemory(StartingSpritePaths spritePaths)
   {
     Sprite sprite = {};
     sprite.OriginalFilePath = spritePath;
+    sprite.Vertices.clear();
+    sprite.Indices.clear();
     LoadTextureToGpuMemory(sprite.OriginalFilePath, &sprite.TextureImage, &sprite.TextureMemory);
     CreateTextureImageView(VContext.m_Device, sprite.TextureImage, &sprite.TextureImageView);
     CreateTextureSampler(&sprite.TextureSampler);
     spriteListToReturn.push_back(sprite);
+    float x = 0.0f;   // Sprite position
+    float y = 0.0f;
+    float width = 100.0f;  // Sprite size
+    float height = 100.0f;
+    std::cout<< "Size of verts is: " << sprite.Vertices.size() << "\n";
+    FillSpriteVerticesAndIndices(sprite.Vertices, sprite.Indices, x, y, width, height);
   }
   return spriteListToReturn;
 }
@@ -357,6 +384,125 @@ void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) {
 
   endSingleTimeCommands(commandBuffer);
 }
+
+
+
+void CreateVertexBuffersSprites(const std::vector<Sprite>& sprites)
+{
+    // Calculate total size for all sprites
+    size_t totalVertexCount = 0;
+    for (const auto& sprite : sprites) 
+  {
+        totalVertexCount += sprite.Vertices.size();
+    }
+    VkDeviceSize bufferSize = sizeof(Vertex) * totalVertexCount;
+
+    // Create staging buffer
+    VkBuffer stagingBuffer;
+    VmaAllocation stagingAllocation;
+
+    VkBufferCreateInfo stagingBufferInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+    stagingBufferInfo.size = bufferSize;
+    stagingBufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+
+    VmaAllocationCreateInfo stagingAllocInfo = {};
+    stagingAllocInfo.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+
+    vmaCreateBuffer(m_Allocator, &stagingBufferInfo, &stagingAllocInfo, &stagingBuffer, &stagingAllocation, nullptr);
+
+    // Map and copy all vertex data sequentially
+    void* data;
+    vmaMapMemory(m_Allocator, stagingAllocation, &data);
+
+    char* dataPtr = static_cast<char*>(data);
+    for (const auto& sprite : sprites) 
+    {
+        size_t spriteSize = sprite.Vertices.size() * sizeof(Vertex);
+        memcpy(dataPtr, sprite.Vertices.data(), spriteSize);
+        dataPtr += spriteSize;
+    }
+
+    vmaUnmapMemory(m_Allocator, stagingAllocation);
+
+    // Create vertex buffer on GPU
+    VkBufferCreateInfo vertexBufferInfo = {};
+    vertexBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    vertexBufferInfo.size = bufferSize;
+    vertexBufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    vertexBufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    VmaAllocationCreateInfo vertexAllocInfo = {};
+    vertexAllocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+
+    vmaCreateBuffer(m_Allocator, &vertexBufferInfo, &vertexAllocInfo, &m_VertexBuffer, &m_VertexBufferAllocation, nullptr);
+
+    // Copy staging buffer to vertex buffer
+    copyBuffer(stagingBuffer, m_VertexBuffer, bufferSize);
+
+    // Cleanup
+    vmaDestroyBuffer(m_Allocator, stagingBuffer, stagingAllocation);
+}
+
+void CreateIndexBuffersSprites(const std::vector<Sprite>& sprites)
+{
+    // Calculate total indices count
+    size_t totalIndexCount = 0;
+    for (const auto& sprite : sprites) 
+  {
+        totalIndexCount += sprite.Indices.size();
+    }
+    VkDeviceSize bufferSize = sizeof(uint32_t) * totalIndexCount;
+
+    // Create staging buffer
+    VkBuffer stagingBuffer;
+    VmaAllocation stagingAllocation;
+    VkBufferCreateInfo stagingBufferInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+    stagingBufferInfo.size = bufferSize;
+    stagingBufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+
+    VmaAllocationCreateInfo stagingAllocInfo = {};
+    stagingAllocInfo.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+
+    vmaCreateBuffer(m_Allocator, &stagingBufferInfo, &stagingAllocInfo, &stagingBuffer, &stagingAllocation, nullptr);
+
+    // Map and copy index data sequentially
+    void* data;
+    vmaMapMemory(m_Allocator, stagingAllocation, &data);
+
+    char* dataPtr = static_cast<char*>(data);
+    for (const auto& sprite : sprites) 
+  {
+        size_t spriteSize = sprite.Indices.size() * sizeof(uint32_t);
+        memcpy(dataPtr, sprite.Indices.data(), spriteSize);
+        dataPtr += spriteSize;
+    }
+
+    vmaUnmapMemory(m_Allocator, stagingAllocation);
+
+    // Create GPU index buffer
+    VkBufferCreateInfo indexBufferInfo = {};
+    indexBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    indexBufferInfo.size = bufferSize;
+    indexBufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+    indexBufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    VmaAllocationCreateInfo indexAllocInfo = {};
+    indexAllocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+
+    vmaCreateBuffer(m_Allocator, &indexBufferInfo, &indexAllocInfo, &m_IndexBuffer, &m_IndexBufferAllocation, nullptr);
+
+    // Copy staging to GPU index buffer
+    copyBuffer(stagingBuffer, m_IndexBuffer, bufferSize);
+
+    // Cleanup staging
+    vmaDestroyBuffer(m_Allocator, stagingBuffer, stagingAllocation);
+}
+
+
+
+
+
+
 
 
 void CreateVertexBuffers() 
@@ -727,8 +873,8 @@ void initVulkan(GLFWwindow* window)
   //loadModel(false);
   //loadModel(true);
 
-  //CreateVertexBuffers();
-  //createIndexBuffer();
+  CreateVertexBuffersSprites(G_GameSprites);
+  CreateIndexBuffersSprites(G_GameSprites);
 
   SwapChain = CreateSwapChain(VContext);
 
