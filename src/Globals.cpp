@@ -69,31 +69,31 @@ struct Vertex
   }
 };
 
-struct Sprite {
-  // Texture resources
-  VkDeviceMemory TextureMemory;
-  VkImage TextureImage;
-  VkImageView TextureImageView;
-  VkSampler TextureSampler;
+struct Sprite
+{
+    char* OriginalFilePath;
 
-  // Original texture file path (consider using std::string for safety)
-  char* OriginalFilePath;
+    // Vertex and index data for the sprite
+    std::vector<Vertex> Vertices;
+    std::vector<uint32_t> Indices;
 
-  // CPU-side vertex/index data (optional, for loading/filling)
-  std::vector<Vertex> Vertices;
-  std::vector<uint32_t> Indices;
+    // Texture image and allocation
+    VkImage TextureImage;
+    VmaAllocation TextureAllocation;
 
-  // GPU-side vertex and index buffers
-  VkBuffer SpriteVertexBuffer;
-  VkDeviceMemory VertexBufferMemory;
-  VkBuffer SpriteIndexBuffer;
-  VkDeviceMemory IndexBufferMemory;
+    // Image view and sampler (normal Vulkan handles)
+    VkImageView TextureImageView;
+    VkSampler TextureSampler;
 
-  // Uniform buffer for this sprite's UBO data
-  VkBuffer UniformBuffer;
-  VkDeviceMemory UniformBufferMemory;
+    // Buffers and allocations
+    VkBuffer SpriteVertexBuffer;
+    VmaAllocation VertexBufferAllocation;
 
-  // Descriptor set for this sprite (binds UBO + texture)
+    VkBuffer SpriteIndexBuffer;
+    VmaAllocation IndexBufferAllocation;
+
+    VkBuffer UniformBuffer;
+    VmaAllocation UniformBufferAllocation;
   VkDescriptorSet DescriptorSet;
 };
 
@@ -148,6 +148,8 @@ struct VulkanContext
 typedef std::vector<Sprite> SpriteList;
 typedef std::vector<char*> StartingSpritePaths;
 
+
+VmaAllocator m_Allocator;
 GameState G_GameState;
 VulkanContext VContext;
 HotReloadData G_HotReloadData;

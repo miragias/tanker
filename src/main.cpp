@@ -43,7 +43,6 @@ VkDeviceMemory vertexBufferMemory;
 
 VmaAllocation m_VertexBufferAllocation;
 VmaAllocation m_IndexBufferAllocation;
-VkDeviceMemory m_IndexBufferMemory;
 
 uint32_t m_ImageIndex = 0;
 
@@ -55,44 +54,42 @@ std::vector<VkSemaphore> m_RenderFinishedSemaphores;
 std::vector<VkFence> m_InFlightFences;
 std::vector<VkFence> m_ImagesInFlight;
 
-VmaAllocator m_Allocator;
-
 size_t m_CurrentFrame = 0;
 
-VkCommandBuffer beginSingleTimeCommands() {
-  VkCommandBufferAllocateInfo allocInfo = {};
-  allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-  allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-  allocInfo.commandPool = m_CommandPool;
-  allocInfo.commandBufferCount = 1;
+VkCommandBuffer beginSingleTimeCommands()
+{
+    VkCommandBufferAllocateInfo allocInfo = {};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandPool = m_CommandPool;  // Assume you have a command pool
+    allocInfo.commandBufferCount = 1;
 
-  VkCommandBuffer commandBuffer;
-  vkAllocateCommandBuffers(VContext.m_Device, &allocInfo, &commandBuffer);
+    VkCommandBuffer commandBuffer;
+    vkAllocateCommandBuffers(VContext.m_Device, &allocInfo, &commandBuffer);
 
-  VkCommandBufferBeginInfo beginInfo = {};
-  beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-  beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    VkCommandBufferBeginInfo beginInfo = {};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
-  vkBeginCommandBuffer(commandBuffer, &beginInfo);
+    vkBeginCommandBuffer(commandBuffer, &beginInfo);
 
-  return commandBuffer;
+    return commandBuffer;
 }
 
-void endSingleTimeCommands(VkCommandBuffer commandBuffer) {
-  vkEndCommandBuffer(commandBuffer);
+void endSingleTimeCommands(VkCommandBuffer commandBuffer)
+{
+    vkEndCommandBuffer(commandBuffer);
 
-  VkSubmitInfo submitInfo = {};
-  submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-  submitInfo.commandBufferCount = 1;
-  submitInfo.pCommandBuffers = &commandBuffer;
+    VkSubmitInfo submitInfo = {};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &commandBuffer;
 
-  vkQueueSubmit(VContext.m_GraphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-  vkQueueWaitIdle(VContext.m_GraphicsQueue);
+    vkQueueSubmit(VContext.m_GraphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+    vkQueueWaitIdle(VContext.m_GraphicsQueue);
 
-  vkFreeCommandBuffers(VContext.m_Device, m_CommandPool, 1, &commandBuffer);
+    vkFreeCommandBuffers(VContext.m_Device, m_CommandPool, 1, &commandBuffer);
 }
-
-
 
 void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) 
 {
@@ -208,49 +205,66 @@ void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width,
   endSingleTimeCommands(commandBuffer);
 }
 
-void LoadTextureToGpuMemory(const char *filePath, VkImage *image, VkDeviceMemory *memory)
+void LoadTextureToGpuMemory(const char* filePath, VkImage* image, VmaAllocation* allocation)
 {
     int texWidth, texHeight, texChannels;
-    stbi_uc *pixels = stbi_load(filePath, &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+    stbi_uc* pixels = stbi_load(filePath, &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
     VkDeviceSize imageSize = texWidth * texHeight * 4;
 
     if (!pixels)
         throw std::runtime_error("failed to load texture image!");
 
+    // Create staging buffer with VMA (CPU visible)
     VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
+    VmaAllocation stagingAllocation;
 
-    CreateBuffer(VContext.m_Device, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                 stagingBuffer, stagingBufferMemory);
+    VkBufferCreateInfo stagingBufferInfo = {};
+    stagingBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    stagingBufferInfo.size = imageSize;
+    stagingBufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    stagingBufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-    void *data;
-    vkMapMemory(VContext.m_Device, stagingBufferMemory, 0, imageSize, 0, &data);
-    memcpy(data, pixels, static_cast<size_t>(imageSize));
-    vkUnmapMemory(VContext.m_Device, stagingBufferMemory);
+    VmaAllocationCreateInfo stagingAllocInfo = {};
+    stagingAllocInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+
+    vmaCreateBuffer(m_Allocator, &stagingBufferInfo, &stagingAllocInfo, &stagingBuffer, &stagingAllocation, nullptr);
+
+    // Copy pixel data to staging buffer
+    void* mappedData;
+    vmaMapMemory(m_Allocator, stagingAllocation, &mappedData);
+    memcpy(mappedData, pixels, static_cast<size_t>(imageSize));
+    vmaUnmapMemory(m_Allocator, stagingAllocation);
 
     stbi_image_free(pixels);
 
-    CreateImage(texWidth, texHeight, VK_FORMAT_R8G8B8A8_UNORM,
-                VK_IMAGE_TILING_OPTIMAL,
-                VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, image,
-                memory);
+    // Create optimal tiled image with VMA (GPU only)
+    VkImageCreateInfo imageInfo = {};
+    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    imageInfo.imageType = VK_IMAGE_TYPE_2D;
+    imageInfo.extent.width = static_cast<uint32_t>(texWidth);
+    imageInfo.extent.height = static_cast<uint32_t>(texHeight);
+    imageInfo.extent.depth = 1;
+    imageInfo.mipLevels = 1;
+    imageInfo.arrayLayers = 1;
+    imageInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+    imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-    transitionImageLayout(*image, VK_FORMAT_R8G8B8A8_UNORM,
-                          VK_IMAGE_LAYOUT_UNDEFINED,
-                          VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    VmaAllocationCreateInfo imageAllocInfo = {};
+    imageAllocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
 
-    copyBufferToImage(stagingBuffer, *image,
-                      static_cast<uint32_t>(texWidth),
-                      static_cast<uint32_t>(texHeight));
+    vmaCreateImage(m_Allocator, &imageInfo, &imageAllocInfo, image, allocation, nullptr);
 
-    transitionImageLayout(*image, VK_FORMAT_R8G8B8A8_UNORM,
-                          VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                          VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    // Transition image layout for copy and shader usage
+    transitionImageLayout(*image, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    copyBufferToImage(stagingBuffer, *image, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
+    transitionImageLayout(*image, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-    vkDestroyBuffer(VContext.m_Device, stagingBuffer, nullptr);
-    vkFreeMemory(VContext.m_Device, stagingBufferMemory, nullptr);
+    // Cleanup staging buffer
+    vmaDestroyBuffer(m_Allocator, stagingBuffer, stagingAllocation);
 }
 
 void CreateTextureImageView(VkDevice& device, VkImage& image, VkImageView* imageView) 
@@ -286,109 +300,143 @@ void CreateTextureSampler(VkSampler *outTextureSampler)
 
 void FillSpriteVerticesAndIndices(std::vector<Vertex>& vertices, std::vector<uint32_t>& indices, float x, float y, float width, float height)
 {
-    // Define 4 vertices of the quad (z = 0), white color, proper UVs
-    vertices.push_back({ {x,          y,           0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f} }); // bottom-left
-    vertices.push_back({ {x + width,  y,           0.0f}, {1.0f, 1.0f, 1.0f}, {1.0f, 0.0f} }); // bottom-right
-    vertices.push_back({ {x + width,  y + height,  0.0f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f} }); // top-right
-    vertices.push_back({ {x,          y + height,  0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f} }); // top-left
+    float halfWidth  = width  * 0.5f;
+    float halfHeight = height * 0.5f;
 
-    uint32_t baseIndex = static_cast<uint32_t>(vertices.size()) - 4; // Index of first vertex of this quad
+    // Offset the quad so that (x, y) is the center
+    vertices.push_back({ {x - halfWidth, y - halfHeight, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f} }); // bottom-left
+    vertices.push_back({ {x + halfWidth, y - halfHeight, 0.0f}, {1.0f, 1.0f, 1.0f}, {1.0f, 0.0f} }); // bottom-right
+    vertices.push_back({ {x + halfWidth, y + halfHeight, 0.0f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f} }); // top-right
+    vertices.push_back({ {x - halfWidth, y + halfHeight, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f} }); // top-left
 
-    // Two triangles (6 indices) to form the quad
+    uint32_t baseIndex = static_cast<uint32_t>(vertices.size()) - 4;
+
     indices.push_back(baseIndex + 0);
     indices.push_back(baseIndex + 1);
     indices.push_back(baseIndex + 2);
-
     indices.push_back(baseIndex + 2);
     indices.push_back(baseIndex + 3);
     indices.push_back(baseIndex + 0);
 }
 
-void UploadDataToGpuBuffer( void* srcData, VkDeviceSize size, VkBufferUsageFlags usage,
-    VkBuffer& outBuffer, VkDeviceMemory& outBufferMemory)
+void UploadDataToGpuBufferVMA(void* srcData, VkDeviceSize size, VkBuffer dstBuffer)
 {
+    // Create staging buffer (CPU visible) with VMA
     VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
+    VmaAllocation stagingAllocation;
 
-    // 1. Create staging buffer
-    CreateBuffer(
-        VContext.m_Device,
-        size,
-        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-        stagingBuffer,
-        stagingBufferMemory);
+    VkBufferCreateInfo bufferInfo = {};
+    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferInfo.size = size;
+    bufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-    // 2. Copy CPU data to staging buffer
-    void* mappedData;
-    vkMapMemory(VContext.m_Device, stagingBufferMemory, 0, size, 0, &mappedData);
-    memcpy(mappedData, srcData, static_cast<size_t>(size));
-    vkUnmapMemory(VContext.m_Device, stagingBufferMemory);
+    VmaAllocationCreateInfo allocInfo = {};
+    allocInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
 
-    // 3. Create GPU-local buffer
-    CreateBuffer( VContext.m_Device, size, usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-        outBuffer,
-        outBufferMemory);
+    vmaCreateBuffer(m_Allocator, &bufferInfo, &allocInfo, &stagingBuffer, &stagingAllocation, nullptr);
 
-    // 4. Copy from staging to GPU buffer
-    CopyBuffer(stagingBuffer, outBuffer, size);
+    // Map memory and copy data
+    void* mapped;
+    vmaMapMemory(m_Allocator, stagingAllocation, &mapped);
+    memcpy(mapped, srcData, (size_t)size);
+    vmaUnmapMemory(m_Allocator, stagingAllocation);
 
-    // 5. Clean up staging buffer
-    vkDestroyBuffer(VContext.m_Device, stagingBuffer, nullptr);
-    vkFreeMemory(VContext.m_Device, stagingBufferMemory, nullptr);
+    // Submit copy command to transfer from stagingBuffer to dstBuffer
+    VkCommandBuffer copyCmd = beginSingleTimeCommands();
+
+    VkBufferCopy copyRegion = {};
+    copyRegion.srcOffset = 0;
+    copyRegion.dstOffset = 0;
+    copyRegion.size = size;
+    vkCmdCopyBuffer(copyCmd, stagingBuffer, dstBuffer, 1, &copyRegion);
+
+    endSingleTimeCommands(copyCmd);
+
+    // Cleanup staging buffer
+    vmaDestroyBuffer(m_Allocator, stagingBuffer, stagingAllocation);
 }
 
 SpriteList LoadSpriteListIntoGpuMemory(StartingSpritePaths spritePaths)
 {
-  SpriteList spriteListToReturn = {};
-  for(auto spritePath : spritePaths)
-  {
-    Sprite sprite = {};
-    sprite.OriginalFilePath = spritePath;
-    sprite.Vertices.clear();
-    sprite.Indices.clear();
-    LoadTextureToGpuMemory(sprite.OriginalFilePath, &sprite.TextureImage, &sprite.TextureMemory);
-    CreateTextureImageView(VContext.m_Device, sprite.TextureImage, &sprite.TextureImageView);
-    CreateTextureSampler(&sprite.TextureSampler);
-    float x = 0.0f;   // Sprite position
-    float y = 0.0f;
-    float width = 100.0f;  // Sprite size
-    float height = 100.0f;
-    FillSpriteVerticesAndIndices(sprite.Vertices, sprite.Indices, x, y, width, height);
+    SpriteList spriteListToReturn = {};
 
-    VkDeviceSize vertexBufferSize = sizeof(Vertex) * sprite.Vertices.size();
-    VkDeviceSize indexBufferSize = sizeof(uint32_t) * sprite.Indices.size();
+    for(auto spritePath : spritePaths)
+    {
+        Sprite sprite = {};
+        sprite.OriginalFilePath = spritePath;
+        sprite.Vertices.clear();
+        sprite.Indices.clear();
 
-    UploadDataToGpuBuffer(
-        sprite.Vertices.data(),
-        vertexBufferSize,
-        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-        sprite.SpriteVertexBuffer,
-        sprite.VertexBufferMemory);
+        // --- Load Texture Image using VMA ---
+        // Assuming you refactor LoadTextureToGpuMemory to use vmaCreateImage
+        LoadTextureToGpuMemory(sprite.OriginalFilePath, &sprite.TextureImage, &sprite.TextureAllocation);
+        CreateTextureImageView(VContext.m_Device, sprite.TextureImage, &sprite.TextureImageView);
+        CreateTextureSampler(&sprite.TextureSampler);
 
-    UploadDataToGpuBuffer(
-        sprite.Indices.data(),
-        indexBufferSize,
-        VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-        sprite.SpriteIndexBuffer,
-        sprite.IndexBufferMemory);
+        float x = 0.0f;   // Sprite position
+        float y = 0.0f;
+        float width = 100.0f;  // Sprite size
+        float height = 100.0f;
+        FillSpriteVerticesAndIndices(sprite.Vertices, sprite.Indices, 0.0f, 0.0f, 1.0f, 1.0f);
 
-    // Create uniform buffer (as you already do)
-    VkDeviceSize uniformBufferSize = sizeof(UniformBufferObject);
-    CreateBuffer(VContext.m_Device,
-      uniformBufferSize,
-      VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-      sprite.UniformBuffer,
-      sprite.UniformBufferMemory
-    );
+        VkDeviceSize vertexBufferSize = sizeof(Vertex) * sprite.Vertices.size();
+        VkDeviceSize indexBufferSize = sizeof(uint32_t) * sprite.Indices.size();
 
-    spriteListToReturn.push_back(sprite);
-  }
-  return spriteListToReturn;
+        // --- Create Vertex Buffer with VMA ---
+        {
+            VkBufferCreateInfo bufferInfo = {};
+            bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+            bufferInfo.size = vertexBufferSize;
+            bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+            bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+            VmaAllocationCreateInfo allocInfo = {};
+            allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+
+            vmaCreateBuffer(m_Allocator, &bufferInfo, &allocInfo, &sprite.SpriteVertexBuffer, &sprite.VertexBufferAllocation, nullptr);
+
+            // Upload data via staging buffer
+            UploadDataToGpuBufferVMA(sprite.Vertices.data(), vertexBufferSize, sprite.SpriteVertexBuffer);
+        }
+
+        // --- Create Index Buffer with VMA ---
+        {
+            VkBufferCreateInfo bufferInfo = {};
+            bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+            bufferInfo.size = indexBufferSize;
+            bufferInfo.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+            bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+            VmaAllocationCreateInfo allocInfo = {};
+            allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+
+            vmaCreateBuffer(m_Allocator, &bufferInfo, &allocInfo, &sprite.SpriteIndexBuffer, &sprite.IndexBufferAllocation, nullptr);
+
+            UploadDataToGpuBufferVMA(sprite.Indices.data(), indexBufferSize, sprite.SpriteIndexBuffer);
+        }
+
+        // --- Create Uniform Buffer with VMA ---
+        {
+            VkDeviceSize uniformBufferSize = sizeof(UniformBufferObject);
+
+            VkBufferCreateInfo bufferInfo = {};
+            bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+            bufferInfo.size = uniformBufferSize;
+            bufferInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+            bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+            VmaAllocationCreateInfo allocInfo = {};
+            allocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+
+            vmaCreateBuffer(m_Allocator, &bufferInfo, &allocInfo, &sprite.UniformBuffer, &sprite.UniformBufferAllocation, nullptr);
+        }
+
+        spriteListToReturn.push_back(sprite);
+    }
+
+    return spriteListToReturn;
 }
-
 
 void loadModel(bool second) 
 {
@@ -716,13 +764,13 @@ void setupCommandBuffers(uint32 i, SpriteList spriteList)
 
   vkCmdBindPipeline(m_CommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_GraphicsPipeline);
 
+  VkDeviceSize offsets[] = { 0 };
   for (size_t spriteIdx = 0; spriteIdx < spriteList.size(); ++spriteIdx) 
   {
       const Sprite& sprite = spriteList[spriteIdx];
 
       // Bind vertex and index buffers for this sprite
       VkBuffer vertexBuffers[] = { sprite.SpriteVertexBuffer };
-      VkDeviceSize offsets[] = { 0 };
       vkCmdBindVertexBuffers(m_CommandBuffers[i], 0, 1, vertexBuffers, offsets);
       vkCmdBindIndexBuffer(m_CommandBuffers[i], sprite.SpriteIndexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
@@ -731,15 +779,15 @@ void setupCommandBuffers(uint32 i, SpriteList spriteList)
           m_CommandBuffers[i],
           VK_PIPELINE_BIND_POINT_GRAPHICS,
           m_PipelineLayout,
-          0, 1, &sprite.DescriptorSet,  // per-sprite descriptor set
+          0, 1, &sprite.DescriptorSet,
           0, nullptr);
+
 
       // Draw the sprite
       vkCmdDrawIndexed(m_CommandBuffers[i],
                       static_cast<uint32_t>(sprite.Indices.size()),
                       1, 0, 0, 0);
   }
-
 
   ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), m_CommandBuffers[i]);
 
@@ -780,7 +828,6 @@ void cleanup()
 
   vkDeviceWaitIdle(VContext.m_Device);
   vkDestroyBuffer(VContext.m_Device, m_IndexBuffer, nullptr);
-  vkFreeMemory(VContext.m_Device, m_IndexBufferMemory, nullptr);
 
   vkDestroyBuffer(VContext.m_Device, m_VertexBuffer, nullptr);
   vmaFreeMemory(m_Allocator, m_VertexBufferAllocation);
@@ -938,8 +985,8 @@ void initVulkan(GLFWwindow* window)
 
   G_GameSprites = LoadSpriteListIntoGpuMemory(LoadFileList(SPRITES_PATH));
 
-  //loadModel(false);
-  //loadModel(true);
+  loadModel(false);
+  loadModel(true);
 
   CreateVertexBuffersSprites(G_GameSprites);
   CreateIndexBuffersSprites(G_GameSprites);

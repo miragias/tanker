@@ -371,7 +371,8 @@ void createGraphicsPipeline(VkExtent2D swapChainExtent)
   rasterizer.rasterizerDiscardEnable = VK_FALSE;
   rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
   rasterizer.lineWidth = 1.0f;
-  rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
+  //rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
+  rasterizer.cullMode = VK_CULL_MODE_NONE;
   rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
   rasterizer.depthBiasEnable = VK_FALSE;
 
@@ -425,6 +426,10 @@ void createGraphicsPipeline(VkExtent2D swapChainExtent)
   depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
   depthStencil.depthBoundsTestEnable = VK_FALSE;
   depthStencil.stencilTestEnable = VK_FALSE;
+
+  //TODO:
+  depthStencil.depthTestEnable = VK_FALSE;
+  depthStencil.depthWriteEnable = VK_FALSE;
 
   VkGraphicsPipelineCreateInfo pipelineInfo = {};
   pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -601,31 +606,6 @@ void CreateSwapChainImageViews(VkDevice device, std::vector<VkImageView>* swapCh
                         VK_IMAGE_ASPECT_COLOR_BIT, device);
   }
 }
-void CreateSwapChainSampler(VkSampler *outTextureSampler) 
-{
-  VkSamplerCreateInfo samplerInfo = {};
-  samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-  samplerInfo.magFilter = VK_FILTER_LINEAR;
-  samplerInfo.minFilter = VK_FILTER_LINEAR;
-  samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-  samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-  samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-  samplerInfo.anisotropyEnable = VK_TRUE;
-  samplerInfo.maxAnisotropy = 1;
-  samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-  samplerInfo.unnormalizedCoordinates = VK_FALSE;
-  samplerInfo.compareEnable = VK_FALSE;
-  samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
-  samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-  samplerInfo.mipLodBias = 0.0f;
-  samplerInfo.minLod = 0.0f;
-  samplerInfo.maxLod = 0.0f;
-
-  if (vkCreateSampler(VContext.m_Device, &samplerInfo, nullptr, outTextureSampler) != VK_SUCCESS) 
-  {
-    throw std::runtime_error("failed to create texture sampler!");
-  }
-}
                                                                     ////Probably bind render pass with uniform etc 
 //TODO(JohnMir): Use pointers with malloc/free for these main stuff.
 //TODO(JohnMir): Rename to also create render pass and out it here (or use it as global I guess)
@@ -640,9 +620,7 @@ VulkanSwapChain CreateSwapChain(VulkanContext vulkanContext, SpriteList& spriteL
   VkImage depthImage;
   VkDeviceMemory depthImageMemory;
   VkImageView depthImageView;
-  VkSampler swapChainSampler;
 
-  CreateSwapChainSampler(&swapChainSampler);
   CreateVulkanSwapChain(vulkanContext, &vkSwapChain, &swapChainImages, &swapChainExtent, &swapChainImageFormat);
   CreateSwapChainImageViews(vulkanContext.m_Device, &swapChainImageViews, swapChainImages, swapChainImageFormat);
   createRenderPass(vulkanContext.m_Device, swapChainImageFormat, &m_RenderPass);
