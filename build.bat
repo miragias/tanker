@@ -39,41 +39,43 @@ if not exist %BuildDir% mkdir %BuildDir%
 set Compiler=cl
 set Linker=link
 
-set TimestampFile=%BuildDir%\pch_timestamp.txt
+:: --- Determine file sizes ---
+set "LastSizeFile=%BuildDir%\pch_size.txt"
+set "RebuildPCH="
 
-:: Read last recorded timestamp
-set LastTS=
-if exist "%TimestampFile%" (
-    for /F "usebackq delims=" %%L in ("%TimestampFile%") do set "LastTS=%%L"
-    echo [PCH] Last recorded timestamp: !LastTS!
+:: Read last recorded sizes
+set "LastSizes="
+if exist "%LastSizeFile%" (
+    for /F "usebackq delims=" %%L in ("%LastSizeFile%") do set "LastSizes=%%L"
+    echo [PCH] Last recorded size: !LastSizes!
 ) else (
-    echo [PCH] No previous timestamp found.
+    echo [PCH] No previous size found.
 )
 
-:: Grab current timestamps
-for %%F in ("%PCHHeader%") do set "CurrH=%%~tF"
-for %%F in ("%PCHSource%") do set "CurrC=%%~tF"
-echo [PCH] Current timestamps: header=!CurrH!, source=!CurrC!
-set "CurrTS=!CurrH!|!CurrC!"
+:: Get current sizes of the header and source
+for %%F in ("%PCHHeader%") do set "SizeH=%%~zF"
+for %%F in ("%PCHSource%") do set "SizeC=%%~zF"
+set "CurrSizes=!SizeH!|!SizeC!"
+echo [PCH] Current sizes: header=!SizeH!, source=!SizeC!
 
 :: Decide whether to rebuild
-if not defined LastTS (
-    set RebuildPCH=1
-) else if NOT "!LastTS!"=="!CurrTS!" (
-    echo [PCH] Rebuilding pch
-    set RebuildPCH=1
+if not defined LastSizes (
+    set "RebuildPCH=1"
+) else if not "!CurrSizes!"=="!LastSizes!" (
+    echo [PCH] Header/source size changed. Rebuilding PCH...
+    set "RebuildPCH=1"
 ) else (
-    echo [PCH] Skipping PCH rebuild
+    echo [PCH] No change in header/source size. Skipping PCH rebuild.
 )
-set RebuildPCH=1
 
+:: Compile PCH if needed
 if defined RebuildPCH (
     echo [PCH] Compiling precompiled header: %PCHHeader%…
     %Compiler% /c /Yc"%PCHHeader%" %CFlags% /Fp"%PCHOut%" /Fo"%PCHObj%" "%PCHSource%"
     if errorlevel 1 goto BuildFailed
 
-    >"%TimestampFile%" echo !CurrTS!
-    echo [PCH] Updated timestamp file with: !CurrTS!
+    >"%LastSizeFile%" echo !CurrSizes!
+    echo [PCH] Updated size file with: !CurrSizes!
 )
 
 :: Compile game.dll
