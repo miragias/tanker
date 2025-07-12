@@ -309,6 +309,17 @@ SpriteList LoadSpriteListIntoGpuMemory(StartingSpritePaths spritePaths)
     float width = 100.0f;  // Sprite size
     float height = 100.0f;
     FillSpriteVerticesAndIndices(sprite.Vertices, sprite.Indices, x, y, width, height);
+
+    //Ubo creation
+    VkDeviceSize bufferSize = sizeof(UniformBufferObject);
+
+    CreateBuffer(VContext.m_Device,
+      bufferSize,
+      VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+      sprite.UniformBuffer,
+      sprite.UniformBufferMemory
+    );
     spriteListToReturn.push_back(sprite);
   }
   return spriteListToReturn;
@@ -624,7 +635,7 @@ void createSyncObjects()
   }
 }
 
-void setupCommandBuffers(uint32 i) 
+void setupCommandBuffers(uint32 i, SpriteList spriteList) 
 {
   VkCommandBufferBeginInfo beginInfo = {};
   beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -652,25 +663,30 @@ void setupCommandBuffers(uint32 i)
 
   vkCmdBindPipeline(m_CommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_GraphicsPipeline);
 
-  VkBuffer vertexBuffers[] = {m_VertexBuffer};
-  VkDeviceSize offsets[] = {0};
+  for (size_t spriteIdx = 0; spriteIdx < spriteList.size(); ++spriteIdx) 
+  {
+      const Sprite& sprite = spriteList[spriteIdx];
 
-  vkCmdBindVertexBuffers(m_CommandBuffers[i], 0, 1, vertexBuffers, offsets);
-  vkCmdBindIndexBuffer(m_CommandBuffers[i], m_IndexBuffer, 0,
-                        VK_INDEX_TYPE_UINT32);
-  vkCmdBindDescriptorSets(m_CommandBuffers[i],
-                          VK_PIPELINE_BIND_POINT_GRAPHICS, m_PipelineLayout,
-                          0, 1, &m_DescriptorSets[i], 0, nullptr);
+      // Bind vertex and index buffers for this sprite
+      VkBuffer vertexBuffers[] = { sprite.SpriteVertexBuffer };
+      VkDeviceSize offsets[] = { 0 };
+      vkCmdBindVertexBuffers(m_CommandBuffers[i], 0, 1, vertexBuffers, offsets);
+      vkCmdBindIndexBuffer(m_CommandBuffers[i], sprite.SpriteIndexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
-  //TODO(JohnMir): For loop here one command buffer and keep track of sizes etc
-  /*
-  vkCmdDrawIndexed(m_CommandBuffers[i],
-                    static_cast<uint32_t>(m_VertexIndices.size()), 1, 0, 0, 0);
-  */
-  vkCmdDrawIndexed(m_CommandBuffers[i],
-                    static_cast<uint32_t>(m_Vertex2Indices.size()), 1,
-                    static_cast<uint32_t>(m_VertexIndices.size()), 
-                    static_cast<uint32_t>(m_ModelVertexes.size()), 0);
+      // Bind the descriptor set for this sprite (contains its UBO and texture)
+      vkCmdBindDescriptorSets(
+          m_CommandBuffers[i],
+          VK_PIPELINE_BIND_POINT_GRAPHICS,
+          m_PipelineLayout,
+          0, 1, &sprite.DescriptorSet,  // per-sprite descriptor set
+          0, nullptr);
+
+      // Draw the sprite
+      vkCmdDrawIndexed(m_CommandBuffers[i],
+                      static_cast<uint32_t>(sprite.Indices.size()),
+                      1, 0, 0, 0);
+  }
+
 
   ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), m_CommandBuffers[i]);
 
@@ -750,7 +766,7 @@ void recreateSwapChain(VulkanContext vulkanContext)
   vkDeviceWaitIdle(vulkanContext.m_Device);
   cleanupSwapChain(vulkanContext);
 
-  SwapChain = CreateSwapChain(vulkanContext);
+  SwapChain = CreateSwapChain(vulkanContext, G_GameSprites);
 
   //TODO:JohnMir: the last var
   recreateImguiContext(VContext, m_DescriptorPool, m_RenderPass, SwapChain.m_SwapChainImages,
@@ -777,7 +793,7 @@ void drawFrame() {
   }
 
   // Setup the cmd buffers for that image index
-  setupCommandBuffers(m_ImageIndex);
+  setupCommandBuffers(m_ImageIndex, G_GameSprites);
 
   m_ImagesInFlight[m_ImageIndex] = m_InFlightFences[m_CurrentFrame];
 
@@ -875,7 +891,7 @@ void initVulkan(GLFWwindow* window)
   CreateVertexBuffersSprites(G_GameSprites);
   CreateIndexBuffersSprites(G_GameSprites);
 
-  SwapChain = CreateSwapChain(VContext);
+  SwapChain = CreateSwapChain(VContext, G_GameSprites);
 
   createSyncObjects();
 

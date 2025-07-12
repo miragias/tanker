@@ -69,14 +69,32 @@ struct Vertex
   }
 };
 
-struct Sprite{
+struct Sprite {
+  // Texture resources
   VkDeviceMemory TextureMemory;
   VkImage TextureImage;
   VkImageView TextureImageView;
   VkSampler TextureSampler;
+
+  // Original texture file path (consider using std::string for safety)
   char* OriginalFilePath;
-  std::vector<Vertex> Vertices;    // Vertex is your vertex struct
-  std::vector<uint32_t> Indices;   // Indices for this sprite
+
+  // CPU-side vertex/index data (optional, for loading/filling)
+  std::vector<Vertex> Vertices;
+  std::vector<uint32_t> Indices;
+
+  // GPU-side vertex and index buffers
+  VkBuffer SpriteVertexBuffer;
+  VkDeviceMemory VertexBufferMemory;
+  VkBuffer SpriteIndexBuffer;
+  VkDeviceMemory IndexBufferMemory;
+
+  // Uniform buffer for this sprite's UBO data
+  VkBuffer UniformBuffer;
+  VkDeviceMemory UniformBufferMemory;
+
+  // Descriptor set for this sprite (binds UBO + texture)
+  VkDescriptorSet DescriptorSet;
 };
 
 struct QueueFamilyIndices 
