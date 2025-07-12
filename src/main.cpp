@@ -304,13 +304,12 @@ SpriteList LoadSpriteListIntoGpuMemory(StartingSpritePaths spritePaths)
     LoadTextureToGpuMemory(sprite.OriginalFilePath, &sprite.TextureImage, &sprite.TextureMemory);
     CreateTextureImageView(VContext.m_Device, sprite.TextureImage, &sprite.TextureImageView);
     CreateTextureSampler(&sprite.TextureSampler);
-    spriteListToReturn.push_back(sprite);
     float x = 0.0f;   // Sprite position
     float y = 0.0f;
     float width = 100.0f;  // Sprite size
     float height = 100.0f;
-    std::cout<< "Size of verts is: " << sprite.Vertices.size() << "\n";
     FillSpriteVerticesAndIndices(sprite.Vertices, sprite.Indices, x, y, width, height);
+    spriteListToReturn.push_back(sprite);
   }
   return spriteListToReturn;
 }

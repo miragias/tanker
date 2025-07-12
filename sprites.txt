@@ -1,2 +1,2 @@
-../viking_room.png
-../vk2.png
+viking_room.png
+vk2.png

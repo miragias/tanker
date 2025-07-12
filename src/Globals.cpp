@@ -22,7 +22,7 @@ bool g_SwapChainRebuild = false;
 int g_SwapChainResizeWidth = 0;
 int g_SwapChainResizeHeight = 0;
 const int SWAPCHAIN_IMAGE_NUM = 2;
-const char* SPRITES_PATH = "../sprites.txt";
+const char* SPRITES_PATH = "sprites.txt";
 
 struct Vertex 
 {
