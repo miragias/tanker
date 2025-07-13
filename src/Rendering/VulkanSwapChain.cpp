@@ -202,74 +202,6 @@ void CreateDescriptorPool(VkDevice device,
         throw std::runtime_error("failed to create descriptor pool!");
     }
 }
-void CreateSpriteDescriptorSets(VkDevice device, SpriteList& spriteList, size_t swapchainImageCount)
-{
-    size_t spriteCount = spriteList.size();
-
-    // Resize the container holding all descriptor sets
-    // For example, each sprite has a vector of descriptor sets, one per swapchain image
-    for (auto& sprite : spriteList)
-        sprite.DescriptorSets.resize(swapchainImageCount);
-
-    std::vector<VkDescriptorSetLayout> layouts(swapchainImageCount, g_DescriptorSetLayout);
-
-    for (size_t spriteIndex = 0; spriteIndex < spriteCount; spriteIndex++)
-    {
-        Sprite& sprite = spriteList[spriteIndex];
-
-        VkDescriptorSetAllocateInfo allocInfo = {};
-        allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        allocInfo.descriptorPool = m_DescriptorPool;
-        allocInfo.descriptorSetCount = static_cast<uint32_t>(swapchainImageCount);
-        allocInfo.pSetLayouts = layouts.data();
-
-        std::vector<VkDescriptorSet> descriptorSets(swapchainImageCount);
-        if (vkAllocateDescriptorSets(device, &allocInfo, descriptorSets.data()) != VK_SUCCESS)
-        {
-            throw std::runtime_error("failed to allocate descriptor sets for sprites!");
-        }
-
-        // Update descriptor sets for each swapchain image
-        for (uint32_t imageIndex = 0; imageIndex < swapchainImageCount; imageIndex++)
-        {
-            // Uniform buffer for this sprite and swapchain image
-            VkDescriptorBufferInfo bufferInfo = {};
-            bufferInfo.buffer = sprite.UniformBuffers[imageIndex]; // Assuming you have a vector of buffers per sprite
-            bufferInfo.offset = 0;
-            bufferInfo.range = sizeof(UniformBufferObject);
-
-            // Texture sampler info
-            VkDescriptorImageInfo imageInfo = {};
-            imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-            imageInfo.imageView = sprite.TextureImageView;
-            imageInfo.sampler = sprite.TextureSampler;
-
-            std::array<VkWriteDescriptorSet, 2> descriptorWrites = {};
-
-            descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            descriptorWrites[0].dstSet = descriptorSets[imageIndex];
-            descriptorWrites[0].dstBinding = 0;
-            descriptorWrites[0].dstArrayElement = 0;
-            descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-            descriptorWrites[0].descriptorCount = 1;
-            descriptorWrites[0].pBufferInfo = &bufferInfo;
-
-            descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            descriptorWrites[1].dstSet = descriptorSets[imageIndex];
-            descriptorWrites[1].dstBinding = 1;
-            descriptorWrites[1].dstArrayElement = 0;
-            descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-            descriptorWrites[1].descriptorCount = 1;
-            descriptorWrites[1].pImageInfo = &imageInfo;
-
-            vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
-
-            // Save the descriptor set for this sprite and image index
-            sprite.DescriptorSets[imageIndex] = descriptorSets[imageIndex];
-        }
-    }
-}
-
 void CreateCommandBuffers(VkDevice device, size_t numberOfCommandBufferstoCreate) 
 {
   m_CommandBuffers.resize(numberOfCommandBufferstoCreate);
@@ -291,42 +223,6 @@ void CreateCommandBuffers(VkDevice device, size_t numberOfCommandBufferstoCreate
 }
 
 
-void CreateUniformBuffersForSprites(VkDevice device, VmaAllocator allocator,
-                                    SpriteList& spriteList, size_t swapchainImageCount)
-{
-    VkDeviceSize bufferSize = sizeof(UniformBufferObject);
-
-    for (Sprite& sprite : spriteList)
-    {
-        sprite.UniformBuffers.resize(swapchainImageCount);
-        sprite.UniformBufferAllocations.resize(swapchainImageCount);
-        sprite.MappedUniformData.resize(swapchainImageCount);
-
-        for (size_t i = 0; i < swapchainImageCount; i++)
-        {
-            VkBufferCreateInfo bufferInfo = {};
-            bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-            bufferInfo.size = bufferSize;
-            bufferInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-            bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-            VmaAllocationCreateInfo allocInfo = {};
-            allocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
-            allocInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
-
-            VmaAllocation allocation;
-            VmaAllocationInfo allocInfoOut;
-
-            //Buffer info of sprite filled here
-            if (vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &sprite.UniformBuffers[i], &allocation, &allocInfoOut) != VK_SUCCESS)
-            {
-                throw std::runtime_error("Failed to create sprite uniform buffer!");
-            }
-            sprite.UniformBufferAllocations[i] = allocation;
-            sprite.MappedUniformData[i] = allocInfoOut.pMappedData;
-        }
-    }
-}
 
 void createDepthResources(VkDevice device, VkExtent2D swapChainExtent, VkImage* depthImage,
                           VkDeviceMemory* depthImageMemory, VkImageView& depthImageView) 
@@ -642,7 +538,7 @@ void CreateSwapChainImageViews(VkDevice device, std::vector<VkImageView>* swapCh
   }
 }
 //TODO(JohnMir): Use pointers with malloc/free for these main stuff.
-VulkanSwapChain CreateSwapChain(VulkanContext vulkanContext, SpriteList& spriteList)
+VulkanSwapChain CreateSwapChain(VulkanContext vulkanContext)
 {
   VkSwapchainKHR vkSwapChain;
   VkFormat swapChainImageFormat;

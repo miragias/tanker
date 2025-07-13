@@ -1,3 +1,49 @@
+VkCommandBuffer beginSingleTimeCommands()
+{
+    VkCommandBufferAllocateInfo allocInfo = {};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandPool = m_CommandPool;  // Assume you have a command pool
+    allocInfo.commandBufferCount = 1;
+
+    VkCommandBuffer commandBuffer;
+    vkAllocateCommandBuffers(VContext.m_Device, &allocInfo, &commandBuffer);
+
+    VkCommandBufferBeginInfo beginInfo = {};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+    vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+    return commandBuffer;
+}
+
+void endSingleTimeCommands(VkCommandBuffer commandBuffer)
+{
+    vkEndCommandBuffer(commandBuffer);
+
+    VkSubmitInfo submitInfo = {};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &commandBuffer;
+
+    vkQueueSubmit(VContext.m_GraphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+    vkQueueWaitIdle(VContext.m_GraphicsQueue);
+
+    vkFreeCommandBuffers(VContext.m_Device, m_CommandPool, 1, &commandBuffer);
+}
+
+void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) 
+{
+  VkCommandBuffer commandBuffer = beginSingleTimeCommands();
+
+  VkBufferCopy copyRegion = {};
+  copyRegion.size = size;
+  vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
+
+  endSingleTimeCommands(commandBuffer);
+}
+
 uint32_t findMemoryType(uint32_t typeFilter,
                         VkMemoryPropertyFlags properties) 
 {

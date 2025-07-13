@@ -9,6 +9,7 @@
 #include "ImguiOverlay.cpp"
 #include "Rendering/NativeWindow.cpp"
 #include "Rendering/VulkanSwapChain.cpp"
+#include "Rendering/VulkanSpritesMemoryAllocator.cpp"
 
 //TODO(JohnMir): 
 //Add ubo to each sprite for its world position
@@ -36,16 +37,6 @@ std::vector<uint32_t> m_VertexIndices;
 std::vector<Vertex> m_Model2Vertexes;
 std::vector<uint32_t> m_Vertex2Indices;
 
-//Globals
-VkBuffer m_VertexBuffer;
-VkBuffer m_IndexBuffer;
-
-VkBuffer vertexBuffer;
-VkDeviceMemory vertexBufferMemory;
-
-VmaAllocation m_VertexBufferAllocation;
-VmaAllocation m_IndexBufferAllocation;
-
 uint32_t m_ImageIndex = 0;
 
 VkClearValue clearColor = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -57,52 +48,6 @@ std::vector<VkFence> m_InFlightFences;
 std::vector<VkFence> m_ImagesInFlight;
 
 size_t m_CurrentFrame = 0;
-
-VkCommandBuffer beginSingleTimeCommands()
-{
-    VkCommandBufferAllocateInfo allocInfo = {};
-    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandPool = m_CommandPool;  // Assume you have a command pool
-    allocInfo.commandBufferCount = 1;
-
-    VkCommandBuffer commandBuffer;
-    vkAllocateCommandBuffers(VContext.m_Device, &allocInfo, &commandBuffer);
-
-    VkCommandBufferBeginInfo beginInfo = {};
-    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-    vkBeginCommandBuffer(commandBuffer, &beginInfo);
-
-    return commandBuffer;
-}
-
-void endSingleTimeCommands(VkCommandBuffer commandBuffer)
-{
-    vkEndCommandBuffer(commandBuffer);
-
-    VkSubmitInfo submitInfo = {};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &commandBuffer;
-
-    vkQueueSubmit(VContext.m_GraphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-    vkQueueWaitIdle(VContext.m_GraphicsQueue);
-
-    vkFreeCommandBuffers(VContext.m_Device, m_CommandPool, 1, &commandBuffer);
-}
-
-void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) 
-{
-  VkCommandBuffer commandBuffer = beginSingleTimeCommands();
-
-  VkBufferCopy copyRegion = {};
-  copyRegion.size = size;
-  vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
-
-  endSingleTimeCommands(commandBuffer);
-}
 
 void cleanupSwapChain(VulkanContext vulkanContext) 
 {
@@ -359,7 +304,6 @@ void UploadDataToGpuBufferVMA(void* srcData, VkDeviceSize size, VkBuffer dstBuff
     vmaDestroyBuffer(m_Allocator, stagingBuffer, stagingAllocation);
 }
 
-//TODO(JohnMir): Merge this with CreateUniformBuffersForSprites in SwapChain.cpp
 SpriteList LoadSpriteListIntoGpuMemory(StartingSpritePaths spritePaths)
 {
     SpriteList spriteListToReturn = {};
@@ -479,126 +423,7 @@ void loadModel(bool second)
   }
 }
 
-
-void CreateVertexBuffersSprites(const std::vector<Sprite>& sprites)
-{
-    // Calculate total size for all sprites
-    size_t totalVertexCount = 0;
-    for (const auto& sprite : sprites) 
-  {
-        totalVertexCount += sprite.Vertices.size();
-    }
-    VkDeviceSize bufferSize = sizeof(Vertex) * totalVertexCount;
-
-    // Create staging buffer
-    VkBuffer stagingBuffer;
-    VmaAllocation stagingAllocation;
-
-    VkBufferCreateInfo stagingBufferInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-    stagingBufferInfo.size = bufferSize;
-    stagingBufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-
-    VmaAllocationCreateInfo stagingAllocInfo = {};
-    stagingAllocInfo.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-
-    vmaCreateBuffer(m_Allocator, &stagingBufferInfo, &stagingAllocInfo, &stagingBuffer, &stagingAllocation, nullptr);
-
-    // Map and copy all vertex data sequentially
-    void* data;
-    vmaMapMemory(m_Allocator, stagingAllocation, &data);
-
-    char* dataPtr = static_cast<char*>(data);
-    for (const auto& sprite : sprites) 
-    {
-        size_t spriteSize = sprite.Vertices.size() * sizeof(Vertex);
-        memcpy(dataPtr, sprite.Vertices.data(), spriteSize);
-        dataPtr += spriteSize;
-    }
-
-    vmaUnmapMemory(m_Allocator, stagingAllocation);
-
-    // Create vertex buffer on GPU
-    VkBufferCreateInfo vertexBufferInfo = {};
-    vertexBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    vertexBufferInfo.size = bufferSize;
-    vertexBufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-    vertexBufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-    VmaAllocationCreateInfo vertexAllocInfo = {};
-    vertexAllocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-
-    vmaCreateBuffer(m_Allocator, &vertexBufferInfo, &vertexAllocInfo, &m_VertexBuffer, &m_VertexBufferAllocation, nullptr);
-
-    // Copy staging buffer to vertex buffer
-    CopyBuffer(stagingBuffer, m_VertexBuffer, bufferSize);
-
-    // Cleanup
-    vmaDestroyBuffer(m_Allocator, stagingBuffer, stagingAllocation);
-}
-
-void CreateIndexBuffersSprites(const std::vector<Sprite>& sprites)
-{
-    // Calculate total indices count
-    size_t totalIndexCount = 0;
-    for (const auto& sprite : sprites) 
-  {
-        totalIndexCount += sprite.Indices.size();
-    }
-    VkDeviceSize bufferSize = sizeof(uint32_t) * totalIndexCount;
-
-    // Create staging buffer
-    VkBuffer stagingBuffer;
-    VmaAllocation stagingAllocation;
-    VkBufferCreateInfo stagingBufferInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-    stagingBufferInfo.size = bufferSize;
-    stagingBufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-
-    VmaAllocationCreateInfo stagingAllocInfo = {};
-    stagingAllocInfo.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-
-    vmaCreateBuffer(m_Allocator, &stagingBufferInfo, &stagingAllocInfo, &stagingBuffer, &stagingAllocation, nullptr);
-
-    // Map and copy index data sequentially
-    void* data;
-    vmaMapMemory(m_Allocator, stagingAllocation, &data);
-
-    char* dataPtr = static_cast<char*>(data);
-    for (const auto& sprite : sprites) 
-  {
-        size_t spriteSize = sprite.Indices.size() * sizeof(uint32_t);
-        memcpy(dataPtr, sprite.Indices.data(), spriteSize);
-        dataPtr += spriteSize;
-    }
-
-    vmaUnmapMemory(m_Allocator, stagingAllocation);
-
-    // Create GPU index buffer
-    VkBufferCreateInfo indexBufferInfo = {};
-    indexBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    indexBufferInfo.size = bufferSize;
-    indexBufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-    indexBufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-    VmaAllocationCreateInfo indexAllocInfo = {};
-    indexAllocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-
-    vmaCreateBuffer(m_Allocator, &indexBufferInfo, &indexAllocInfo, &m_IndexBuffer, &m_IndexBufferAllocation, nullptr);
-
-    // Copy staging to GPU index buffer
-    CopyBuffer(stagingBuffer, m_IndexBuffer, bufferSize);
-
-    // Cleanup staging
-    vmaDestroyBuffer(m_Allocator, stagingBuffer, stagingAllocation);
-}
-
-
-
-
-
-
-
-
-void CreateVertexBuffers() 
+void CreateVertexBuffersModel() 
 {
   // Creating vertex buffers for 2 objects
   size_t model1Size = sizeof(m_ModelVertexes[0]) * m_ModelVertexes.size();
@@ -645,7 +470,7 @@ void CreateVertexBuffers()
   vmaDestroyBuffer(m_Allocator, stagingBuffer, stagingAllocation);
 }
 
-void createIndexBuffer() 
+void createIndexBufferModel() 
 {
   size_t dummyModelSize = sizeof(m_VertexIndices[0]) * m_VertexIndices.size();
   size_t dummyModelSize2 =
@@ -848,7 +673,7 @@ void recreateSwapChain(VulkanContext vulkanContext)
   vkDeviceWaitIdle(vulkanContext.m_Device);
   cleanupSwapChain(vulkanContext);
 
-  SwapChain = CreateSwapChain(vulkanContext, G_GameSprites);
+  SwapChain = CreateSwapChain(vulkanContext);
 
   //TODO:JohnMir: the last var
   recreateImguiContext(VContext, m_DescriptorPool, m_RenderPass, SwapChain.m_SwapChainImages,
@@ -970,7 +795,7 @@ void initVulkan(GLFWwindow* window)
   //loadModel(false);
   //loadModel(true);
 
-  SwapChain = CreateSwapChain(VContext, G_GameSprites);
+  SwapChain = CreateSwapChain(VContext);
 
   CreateUniformBuffersForSprites(VContext.m_Device, m_Allocator, G_GameSprites, SwapChain.SwapChainImagesNumber);
   CreateSpriteDescriptorSets(VContext.m_Device, G_GameSprites, SwapChain.SwapChainImagesNumber);
