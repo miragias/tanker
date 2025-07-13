@@ -92,8 +92,6 @@ struct Sprite
     VkBuffer SpriteIndexBuffer;
     VmaAllocation IndexBufferAllocation;
 
-    VkDescriptorSet DescriptorSet;
-
     std::vector<VmaAllocation> UniformBufferAllocations;
     std::vector<void*> MappedUniformData;
     std::vector<VkBuffer> UniformBuffers;

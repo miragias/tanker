@@ -759,7 +759,7 @@ void setupCommandBuffers(uint32 i, SpriteList spriteList)
           m_CommandBuffers[i],
           VK_PIPELINE_BIND_POINT_GRAPHICS,
           m_PipelineLayout,
-          0, 1, &sprite.DescriptorSet,
+          0, 1, &sprite.DescriptorSets[i],
           0, nullptr);
 
 
@@ -989,7 +989,7 @@ void mainLoop()
     G_GameState.aspectRatio = SwapChain.m_SwapChainExtent.width / (float)SwapChain.m_SwapChainExtent.height;
     G_GameState.gamma = G_GameState.gammaValue;
     G_GameState.device = VContext.m_Device;
-    G_GameState.uniformBuffersMemory = {};
+    G_GameState.uniformBufferMappedData = {};
     for(auto s : G_GameSprites)
     {
       G_GameState.uniformBufferMappedData.push_back(s.MappedUniformData);

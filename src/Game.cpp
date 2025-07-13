@@ -10,7 +10,7 @@ extern "C" __declspec(dllexport) void ProcessSimulation(const GameState* state)
                             glm::vec3(0.0f, 1.0f, 0.0f));
     ubo.view = state->Cam.GetViewMatrix();
     ubo.proj = state->Cam.GetProjectionMatrix();
-    ubo.gamma = state->gamma;
+    ubo.gamma = state->gammaValue;
   
     ubo.model = glm::mat4(1.0f);
     ubo.view = glm::mat4(1.0f);

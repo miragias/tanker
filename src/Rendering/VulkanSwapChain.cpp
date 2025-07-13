@@ -165,34 +165,43 @@ VkFormat findDepthFormat() {
                               VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
 }
 
-void CreateDescriptorPool(VkDevice device, std::vector<VkImage>& swapChainImages, VkDescriptorPool* outDescriptorPool) 
+void CreateDescriptorPool(VkDevice device,
+                          std::vector<VkImage>& swapChainImages,
+                          size_t spriteCount,
+                          VkDescriptorPool* outDescriptorPool)
 {
-  std::array<VkDescriptorPoolSize, 3> poolSizes = {};
-  poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-  poolSizes[0].descriptorCount =
-      static_cast<uint32_t>(swapChainImages.size());
-  poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-  poolSizes[1].descriptorCount =
-      static_cast<uint32_t>(swapChainImages.size()) * 2;
-  // Imgui descriptorset
-  poolSizes[2].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-  poolSizes[2].descriptorCount =
-      static_cast<uint32_t>(swapChainImages.size());
+    size_t imageCount = swapChainImages.size();
+    size_t totalDescriptorsNeeded = spriteCount * imageCount;
 
-  VkDescriptorPoolCreateInfo poolInfo = {};
-  poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-  poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
-  poolInfo.pPoolSizes = poolSizes.data();
-  poolInfo.maxSets = static_cast<uint32_t>(swapChainImages.size() + 1);
-  ;
-  poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+    std::array<VkDescriptorPoolSize, 3> poolSizes = {};
 
-  if (vkCreateDescriptorPool(device, &poolInfo, nullptr, outDescriptorPool) != VK_SUCCESS) 
-  {
-    throw std::runtime_error("failed to create descriptor pool!");
-  }
+    // Uniform buffer for each sprite per swapchain image
+    poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    poolSizes[0].descriptorCount = static_cast<uint32_t>(totalDescriptorsNeeded);
+
+    // Texture for each sprite per swapchain image
+    poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    poolSizes[1].descriptorCount = static_cast<uint32_t>(totalDescriptorsNeeded);
+
+    // ImGui (optional, usually 1 per frame)
+    poolSizes[2].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    poolSizes[2].descriptorCount = static_cast<uint32_t>(imageCount);
+
+    VkDescriptorPoolCreateInfo poolInfo = {};
+    poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
+    poolInfo.pPoolSizes = poolSizes.data();
+
+    // 1 descriptor set per sprite per swapchain image
+    poolInfo.maxSets = static_cast<uint32_t>(totalDescriptorsNeeded + imageCount); // add imgui or extra sets
+
+    poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+
+    if (vkCreateDescriptorPool(device, &poolInfo, nullptr, outDescriptorPool) != VK_SUCCESS)
+    {
+        throw std::runtime_error("failed to create descriptor pool!");
+    }
 }
-
 void CreateSpriteDescriptorSets(VkDevice device, SpriteList& spriteList, size_t swapchainImageCount)
 {
     size_t spriteCount = spriteList.size();
@@ -661,7 +670,9 @@ VulkanSwapChain CreateSwapChain(VulkanContext vulkanContext, SpriteList& spriteL
   createDepthResources(vulkanContext.m_Device, swapChainExtent, &depthImage, &depthImageMemory, depthImageView);
   createFramebuffers(vulkanContext.m_Device, swapChainExtent, swapChainImageViews, &swapChainFrameBuffers, m_RenderPass, depthImageView);
   CreateUniformBuffersForSprites(vulkanContext.m_Device, m_Allocator, spriteList, swapChainImagesNumber);
-  CreateDescriptorPool(vulkanContext.m_Device, swapChainImages, &m_DescriptorPool);
+
+  //TODO:
+  CreateDescriptorPool(vulkanContext.m_Device, swapChainImages, 2, &m_DescriptorPool);
   CreateSpriteDescriptorSets(vulkanContext.m_Device, spriteList, swapChainImagesNumber);
   CreateCommandBuffers(vulkanContext.m_Device, swapChainFrameBuffers.size());
 
