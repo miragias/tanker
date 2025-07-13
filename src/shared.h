@@ -1,4 +1,5 @@
 #pragma once
+#include "Rendering/vk_mem_alloc.h"
 
 #include "pch.h"
 
@@ -33,9 +34,11 @@ struct GameState
   float aspectRatio;
   float gamma;
   VkDevice device;
-  std::vector<VkDeviceMemory> uniformBuffersMemory;
   VkExtent2D swapchainExtent;
   Camera Cam;
+  std::vector<std::vector<VkBuffer>> uniformBuffers;
+  std::vector<std::vector<VmaAllocation>> uniformBufferAllocations;
+  std::vector<std::vector<void*>> uniformBufferMappedData;
 };
 
 struct UniformBufferObject 

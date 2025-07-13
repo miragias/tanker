@@ -357,11 +357,12 @@ void UploadDataToGpuBufferVMA(void* srcData, VkDeviceSize size, VkBuffer dstBuff
     vmaDestroyBuffer(m_Allocator, stagingBuffer, stagingAllocation);
 }
 
+//TODO(JohnMir): Merge this with CreateUniformBuffersForSprites in SwapChain.cpp
 SpriteList LoadSpriteListIntoGpuMemory(StartingSpritePaths spritePaths)
 {
     SpriteList spriteListToReturn = {};
 
-    for(auto spritePath : spritePaths)
+    for (auto& spritePath : spritePaths)
     {
         Sprite sprite = {};
         sprite.OriginalFilePath = spritePath;
@@ -369,15 +370,11 @@ SpriteList LoadSpriteListIntoGpuMemory(StartingSpritePaths spritePaths)
         sprite.Indices.clear();
 
         // --- Load Texture Image using VMA ---
-        // Assuming you refactor LoadTextureToGpuMemory to use vmaCreateImage
         LoadTextureToGpuMemory(sprite.OriginalFilePath, &sprite.TextureImage, &sprite.TextureAllocation);
         CreateTextureImageView(VContext.m_Device, sprite.TextureImage, &sprite.TextureImageView);
         CreateTextureSampler(&sprite.TextureSampler);
 
-        float x = 0.0f;   // Sprite position
-        float y = 0.0f;
-        float width = 100.0f;  // Sprite size
-        float height = 100.0f;
+        // Fill sprite geometry (verts & indices)
         FillSpriteVerticesAndIndices(sprite.Vertices, sprite.Indices, 0.0f, 0.0f, 1.0f, 1.0f);
 
         VkDeviceSize vertexBufferSize = sizeof(Vertex) * sprite.Vertices.size();
@@ -396,7 +393,6 @@ SpriteList LoadSpriteListIntoGpuMemory(StartingSpritePaths spritePaths)
 
             vmaCreateBuffer(m_Allocator, &bufferInfo, &allocInfo, &sprite.SpriteVertexBuffer, &sprite.VertexBufferAllocation, nullptr);
 
-            // Upload data via staging buffer
             UploadDataToGpuBufferVMA(sprite.Vertices.data(), vertexBufferSize, sprite.SpriteVertexBuffer);
         }
 
@@ -414,22 +410,6 @@ SpriteList LoadSpriteListIntoGpuMemory(StartingSpritePaths spritePaths)
             vmaCreateBuffer(m_Allocator, &bufferInfo, &allocInfo, &sprite.SpriteIndexBuffer, &sprite.IndexBufferAllocation, nullptr);
 
             UploadDataToGpuBufferVMA(sprite.Indices.data(), indexBufferSize, sprite.SpriteIndexBuffer);
-        }
-
-        // --- Create Uniform Buffer with VMA ---
-        {
-            VkDeviceSize uniformBufferSize = sizeof(UniformBufferObject);
-
-            VkBufferCreateInfo bufferInfo = {};
-            bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-            bufferInfo.size = uniformBufferSize;
-            bufferInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-            bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-            VmaAllocationCreateInfo allocInfo = {};
-            allocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
-
-            vmaCreateBuffer(m_Allocator, &bufferInfo, &allocInfo, &sprite.UniformBuffer, &sprite.UniformBufferAllocation, nullptr);
         }
 
         spriteListToReturn.push_back(sprite);
@@ -1009,7 +989,11 @@ void mainLoop()
     G_GameState.aspectRatio = SwapChain.m_SwapChainExtent.width / (float)SwapChain.m_SwapChainExtent.height;
     G_GameState.gamma = G_GameState.gammaValue;
     G_GameState.device = VContext.m_Device;
-    G_GameState.uniformBuffersMemory = m_UniformBuffersMemory;
+    G_GameState.uniformBuffersMemory = {};
+    for(auto s : G_GameSprites)
+    {
+      G_GameState.uniformBufferMappedData.push_back(s.MappedUniformData);
+    }
     G_GameState.swapchainExtent = SwapChain.m_SwapChainExtent;
 
     //Make camera
