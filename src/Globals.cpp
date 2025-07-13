@@ -123,6 +123,7 @@ struct VulkanSwapChain
   VkImage m_DepthImage;
   VkDeviceMemory m_DepthImageMemory;
   VkImageView m_DepthImageView;
+  size_t SwapChainImagesNumber;
 };
 std::vector<VkDescriptorSet> m_DescriptorSets;
 

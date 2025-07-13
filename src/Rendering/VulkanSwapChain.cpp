@@ -641,9 +641,7 @@ void CreateSwapChainImageViews(VkDevice device, std::vector<VkImageView>* swapCh
                         VK_IMAGE_ASPECT_COLOR_BIT, device);
   }
 }
-                                                                    ////Probably bind render pass with uniform etc 
 //TODO(JohnMir): Use pointers with malloc/free for these main stuff.
-//TODO(JohnMir): Rename to also create render pass and out it here (or use it as global I guess)
 VulkanSwapChain CreateSwapChain(VulkanContext vulkanContext, SpriteList& spriteList)
 {
   VkSwapchainKHR vkSwapChain;
@@ -665,11 +663,7 @@ VulkanSwapChain CreateSwapChain(VulkanContext vulkanContext, SpriteList& spriteL
   createGraphicsPipeline(swapChainExtent);
   createDepthResources(vulkanContext.m_Device, swapChainExtent, &depthImage, &depthImageMemory, depthImageView);
   createFramebuffers(vulkanContext.m_Device, swapChainExtent, swapChainImageViews, &swapChainFrameBuffers, m_RenderPass, depthImageView);
-  CreateUniformBuffersForSprites(vulkanContext.m_Device, m_Allocator, spriteList, swapChainImagesNumber);
-
-  //TODO:
   CreateDescriptorPool(vulkanContext.m_Device, swapChainImages, 2, &m_DescriptorPool);
-  CreateSpriteDescriptorSets(vulkanContext.m_Device, spriteList, swapChainImagesNumber);
   CreateCommandBuffers(vulkanContext.m_Device, swapChainFrameBuffers.size());
 
   VulkanSwapChain swapChain = {};
@@ -682,6 +676,8 @@ VulkanSwapChain CreateSwapChain(VulkanContext vulkanContext, SpriteList& spriteL
   swapChain.m_DepthImage = depthImage;
   swapChain.m_DepthImageMemory = depthImageMemory;
   swapChain.m_DepthImageView = depthImageView;
+  swapChain.m_DepthImageView = depthImageView;
+  swapChain.SwapChainImagesNumber = swapChainImagesNumber;
 
   return swapChain;
 }

@@ -967,13 +967,15 @@ void initVulkan(GLFWwindow* window)
 
   G_GameSprites = LoadSpriteListIntoGpuMemory(LoadFileList(SPRITES_PATH));
 
-  loadModel(false);
-  loadModel(true);
-
-  CreateVertexBuffersSprites(G_GameSprites);
-  CreateIndexBuffersSprites(G_GameSprites);
+  //loadModel(false);
+  //loadModel(true);
 
   SwapChain = CreateSwapChain(VContext, G_GameSprites);
+
+  CreateUniformBuffersForSprites(VContext.m_Device, m_Allocator, G_GameSprites, SwapChain.SwapChainImagesNumber);
+  CreateSpriteDescriptorSets(VContext.m_Device, G_GameSprites, SwapChain.SwapChainImagesNumber);
+  CreateVertexBuffersSprites(G_GameSprites);
+  CreateIndexBuffersSprites(G_GameSprites);
 
   createSyncObjects();
 
@@ -981,12 +983,10 @@ void initVulkan(GLFWwindow* window)
             float(SwapChain.m_SwapChainExtent.width), float(SwapChain.m_SwapChainExtent.height));
 }
 
-
 void mainLoop() 
 { 
-    //TODO(JohnMir): Make this a pointer
-    G_GameState = {};
     //The state initialization
+    G_GameState = {};
     //Some stuff
     G_GameState.aspectRatio = SwapChain.m_SwapChainExtent.width / (float)SwapChain.m_SwapChainExtent.height;
     G_GameState.gamma = G_GameState.gammaValue;
@@ -997,7 +997,6 @@ void mainLoop()
       G_GameState.uniformBufferMappedData.push_back(s.MappedUniformData);
     }
     G_GameState.swapchainExtent = SwapChain.m_SwapChainExtent;
-
     //Make camera
     Camera camera;
     camera.Position     = glm::vec3(0.0f, 4.0f, -10.0f);
