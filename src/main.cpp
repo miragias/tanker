@@ -11,6 +11,8 @@
 #include "Rendering/VulkanSwapChain.cpp"
 
 //TODO(JohnMir): 
+//Add ubo to each sprite for its world position
+//Fix the clearing at the end
 //Arena Allocators
 
 namespace std 

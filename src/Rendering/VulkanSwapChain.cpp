@@ -466,10 +466,6 @@ void createGraphicsPipeline(VkExtent2D swapChainExtent)
   depthStencil.depthBoundsTestEnable = VK_FALSE;
   depthStencil.stencilTestEnable = VK_FALSE;
 
-  //TODO:
-  depthStencil.depthTestEnable = VK_FALSE;
-  depthStencil.depthWriteEnable = VK_FALSE;
-
   VkGraphicsPipelineCreateInfo pipelineInfo = {};
   pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
   pipelineInfo.stageCount = 2;

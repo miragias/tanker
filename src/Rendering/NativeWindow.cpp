@@ -12,7 +12,6 @@ GLFWwindow* CreateAppWindow(int width, int height)
     GLFWwindow* window = glfwCreateWindow(width, height, "Vulkan", nullptr, nullptr);
     if (!window)
     {
-        // Handle error: glfwCreateWindow failed
         return nullptr;
     }
 
